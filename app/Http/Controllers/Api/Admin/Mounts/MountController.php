@@ -1,0 +1,146 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Pterodactyl\Http\Controllers\Api\Admin\Mounts;
+
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Response;
+use Knuckles\Scribe\Attributes\Endpoint;
+use Knuckles\Scribe\Attributes\Group;
+use Knuckles\Scribe\Attributes\QueryParam;
+use Knuckles\Scribe\Attributes\Response as ScribeResponse;
+use Knuckles\Scribe\Attributes\Subgroup;
+use Pterodactyl\Contracts\Mounts\CreatesMounts;
+use Pterodactyl\Contracts\Mounts\DeletesMounts;
+use Pterodactyl\Contracts\Mounts\UpdatesMounts;
+use Pterodactyl\Extensions\Scribe\Attributes\ExtensionFieldsParam;
+use Pterodactyl\Extensions\Scribe\Attributes\ResponseFromResource;
+use Pterodactyl\Facades\Activity;
+use Pterodactyl\Http\Controllers\Api\Admin\AdminApiController;
+use Pterodactyl\Http\Requests\Api\Admin\Mounts\DeleteMountRequest;
+use Pterodactyl\Http\Requests\Api\Admin\Mounts\GetMountRequest;
+use Pterodactyl\Http\Requests\Api\Admin\Mounts\GetMountsRequest;
+use Pterodactyl\Http\Requests\Api\Admin\Mounts\StoreMountRequest;
+use Pterodactyl\Http\Requests\Api\Admin\Mounts\UpdateMountRequest;
+use Pterodactyl\Http\Resources\Api\Admin\MountResource;
+use Pterodactyl\Http\Resources\Api\ApiResourceCollection;
+use Pterodactyl\Models\Mount;
+use Spatie\QueryBuilder\QueryBuilder;
+
+#[Group('Admin API', 'Root administrator endpoints for managing panel configuration and resources.')]
+#[Subgroup('Mounts', 'Create and manage mount definitions and their egg or node attachments.')]
+class MountController extends AdminApiController
+{
+    public const array MOUNT_EXAMPLE = [
+        'object' => 'mount',
+        'attributes' => [
+            'id' => 1,
+            'uuid' => '1b19cf3f-2f89-4f88-a81e-321e7fe326bc',
+            'name' => 'Shared Mods',
+            'description' => 'Shared mod files for servers.',
+            'source' => '/mnt/shared-mods',
+            'target' => '/home/container/mods',
+            'read_only' => true,
+            'user_mountable' => false,
+            'eggs_count' => 1,
+            'nodes_count' => 1,
+            'servers_count' => 0,
+        ],
+    ];
+
+    /**
+     * List mounts.
+     */
+    #[Endpoint('List mounts', 'Returns a paginated list of mount definitions.')]
+    #[QueryParam('filter[name]', 'string', 'Filter mounts by name.', required: false, example: 'Shared Mods')]
+    #[QueryParam('sort', 'string', 'Sort mounts by id or name. Prefix with a hyphen for descending order.', required: false, example: 'name')]
+    #[QueryParam('page', 'integer', 'Page number to return.', required: false, example: 1)]
+    #[QueryParam('per_page', 'integer', 'Results to return per page.', required: false, example: 50)]
+    #[QueryParam('include', 'string', 'Comma-separated relationships to include. Supports "eggs", "nodes", and "servers".', required: false, example: 'eggs,nodes', enum: ['eggs', 'nodes', 'servers', 'eggs,nodes', 'eggs,nodes,servers'])]
+    #[ResponseFromResource(MountResource::class, Mount::class, description: 'Mounts returned.', collection: true, resourceKey: 'mount', paginate: 50)]
+    public function index(GetMountsRequest $request): ApiResourceCollection
+    {
+        $mounts = QueryBuilder::for(Mount::query()->withCount('eggs', 'nodes', 'servers'))
+            ->allowedFilters(['name'])
+            ->allowedSorts(['id', 'name'])
+            ->paginate($request->perPage());
+
+        return MountResource::collection($mounts);
+    }
+
+    /**
+     * Show mount.
+     */
+    #[Endpoint('Get mount', 'Returns a single mount definition by ID.')]
+    #[QueryParam('include', 'string', 'Comma-separated relationships to include. Supports "eggs", "nodes", and "servers".', required: false, example: 'eggs,nodes', enum: ['eggs', 'nodes', 'servers', 'eggs,nodes', 'eggs,nodes,servers'])]
+    #[ResponseFromResource(MountResource::class, Mount::class, description: 'Mount returned.', resourceKey: 'mount', include: ['eggs', 'nodes', 'servers'])]
+    public function show(GetMountRequest $request, Mount $mount): MountResource
+    {
+        $mount->loadCount('eggs', 'nodes', 'servers');
+
+        return MountResource::make($mount)->withExtensionFields();
+    }
+
+    /**
+     * Create mount.
+     */
+    #[Endpoint('Create mount', 'Creates a mount definition and generates its UUID.')]
+    #[ResponseFromResource(MountResource::class, Mount::class, status: 201, description: 'Mount created.', resourceKey: 'mount', meta: ['resource' => 'https://panel.example.com/api/admin/mounts/1'])]
+    #[ExtensionFieldsParam]
+    public function store(StoreMountRequest $request, CreatesMounts $mounts): JsonResponse
+    {
+        $mount = $mounts->create($request->actionInput());
+
+        Activity::event('admin:mount.create')
+            ->subject($mount)
+            ->property('name', $mount->name)
+            ->log();
+
+        return MountResource::make($mount)
+            ->withExtensionFields()
+            ->withMeta([
+                'resource' => route('api.admin.mounts.view', [
+                    'mount' => $mount->id,
+                ]),
+            ])
+            ->respond(Response::HTTP_CREATED);
+    }
+
+    /**
+     * Update mount.
+     */
+    #[Endpoint('Update mount', 'Updates an existing mount definition.')]
+    #[ResponseFromResource(MountResource::class, Mount::class, description: 'Mount updated.', resourceKey: 'mount')]
+    #[ExtensionFieldsParam]
+    public function update(UpdateMountRequest $request, UpdatesMounts $mounts, Mount $mount): MountResource
+    {
+        $mount = $mounts->update($mount, $request->actionInput());
+
+        Activity::event('admin:mount.update')
+            ->subject($mount)
+            ->property('name', $mount->name)
+            ->log();
+
+        return MountResource::make($mount)->withExtensionFields();
+    }
+
+    /**
+     * Delete mount.
+     */
+    #[Endpoint('Delete mount', 'Deletes a mount definition.')]
+    #[ScribeResponse(status: 204, description: 'Mount deleted.')]
+    public function destroy(DeleteMountRequest $request, DeletesMounts $mounts, Mount $mount): Response
+    {
+        $name = $mount->name;
+
+        $mounts->delete($mount);
+
+        Activity::event('admin:mount.delete')
+            ->subject($mount)
+            ->property('name', $name)
+            ->log();
+
+        return $this->returnNoContent();
+    }
+}

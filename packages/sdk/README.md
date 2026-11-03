@@ -1,0 +1,913 @@
+# @pterodactyl/sdk
+
+Build extensions and themes for the Pterodactyl panel (v2+). This package provides:
+
+- **Types** for the runtime API. The implementation is provided *by the panel*
+  through its import map, so your built extension never bundles the SDK, React, or
+  TanStack Query: it shares the panel's own instances.
+- **The Vite build presets** (`@pterodactyl/sdk/vite`): `defineExtensionConfig` keeps those
+  modules external and emits `dist/client.js` plus lazy screen chunks; `defineThemeConfig`
+  also builds a theme's stylesheet.
+- **Test helpers** (`@pterodactyl/sdk/testing`, `@pterodactyl/sdk/vitest`) that render views,
+  UI primitives and screens with the real runtime and no backend.
+- **The `pterodactyl-theme` CLI**, which lists the panel's views, ejects the stock theme's source
+  for one, and copies its skins.
+
+Extensions start at [Quick start](#quick-start). Themes start at [THEMES.md](THEMES.md).
+
+## Quick start
+
+```tsx
+// src/client/index.tsx
+import { useState } from 'react';
+import { Button, definePterodactylExtension, toast } from '@pterodactyl/sdk';
+
+export default definePterodactylExtension({
+    setup({ slots, screens }) {
+        slots.register('server.console.before', () => {
+            const [count, setCount] = useState(0);
+            return <Button onClick={() => { setCount(count + 1); toast.success('hi'); }}>Clicked {count}</Button>;
+        });
+
+        screens.register('votes', () => import('./VotesScreen'));
+    },
+});
+```
+
+```js
+// vite.config.mjs
+import { defineExtensionConfig } from '@pterodactyl/sdk/vite';
+
+export default defineExtensionConfig({ entry: 'src/client/index.tsx' });
+```
+
+`vite build` emits `dist/client.js`, referenced from your `extension.json`:
+
+```json
+{
+    "id": "myext",
+    "name": "My Extension",
+    "version": "1.0.0",
+    "ui": {
+        "entry": "dist/client.js",
+        "mode": "native",
+        "screens": [{
+            "id": "votes",
+            "area": "server",
+            "path": "votes",
+            "nav": { "label": "Votes" },
+            "permission": ["ext.myext.view"]
+        }]
+    }
+}
+```
+
+The `ext.myext.view` permission above is the extension's own subuser permission. Register it from
+the extension's PHP provider so subusers can be granted it in the server's user editor:
+
+```php
+$this->registerPermissions('Manage server votes.', ['view' => 'View the votes page.']);
+```
+
+Each key becomes `ext.<id>.<key>`. Check it on the backend with `$user->can('ext.myext.view', $server)`.
+
+Everything exported from `@pterodactyl/sdk` (and the shared `react` / `react-dom` /
+`@tanstack/react-query` import-map entries) is semver-governed ABI: additions are
+minor versions, removals are majors.
+
+## Loading and recovery
+
+Screen IDs, paths, navigation, and permissions live in `ui.screens` in the manifest. A screen's `permission` list names the subuser permissions needed to open it and is only accepted on `server` screens; account and admin screens are open to every signed-in user and every root admin respectively. Register each declared screen with `screens.register(id, importer)` during synchronous `setup`. Paths use a static first segment and may include named parameters such as `votes/$tab` (the panel reserves `$id`); duplicate paths, duplicate parameter patterns, and core route collisions reject the offending extension. Screen components receive a `data` prop (`ScreenComponentProps`) with the current `pathname`, `search`, and `params`, so `votes/$tab` reads its value from `data.params.tab`.
+
+The panel renders before optional bundles finish importing. Each extension commits atomically when ready; slot display order follows the load order: an extension after the ones it requires, then alphabetical by id. Screens show local loading state while their bundle or chunk loads. Slots have individual Suspense and error boundaries, and SDK websocket callbacks are isolated and attributed to their mod. Native extensions execute in the panel's JavaScript environment; boundaries are not a sandbox and cannot interrupt synchronous code.
+
+Recoverable render/query failures offer Retry. Failed screen chunks offer an explicit page reload because resetting an error boundary cannot evict a rejected browser module. Enabling, disabling, updating, or changing frontend configuration takes effect on the next full page load; reload after management changes. Already evaluated JavaScript is not unloaded dynamically.
+
+## Types and shared dependencies
+
+The panel supports the React 19.3 client API. Server-only caching APIs, development-only `captureOwnerStack`, and unstable cache-refresh APIs are not part of the shared React facade. React, React DOM, JSX runtime, Query, and SDK entry points stay external through the Vite preset.
+
+SDK declarations are generated from the runtime public surface with `npm run sdk:generate` at the panel root. `npm run sdk:check` checks reproducibility and compiles a packed-package consumer, including negative type cases. Component props, form fields, and `useCurrentServer(server => server.attributes.name)` preserve their actual types. SDK peer dependencies include the existing libraries referenced by those declarations; use SDK form hooks/components to share the panel's bound form contexts.
+
+Declare screen metadata in the manifest and register each implementation by ID with `screens.register`. Build extensions against the SDK version used by the panel.
+
+A `file:` dependency on `packages/sdk` is a link into the panel checkout. TypeScript follows links to their real location by default, so the SDK declarations would take React, TanStack Query and the other peers from the panel's `node_modules` while your code takes them from yours; when the versions differ, `useQuery(serverFileContentQueryOptions(...))` fails on two unrelated `QueryClient` types. Scaffolded extensions set `"preserveSymlinks": true` in `tsconfig.json`, which resolves the SDK's peers from the extension, the same way the Vitest preset does at runtime. Do not add `paths` entries for `react`, `@tanstack/react-query` or `lucide-react`. An SDK installed from a tarball or registry needs neither option.
+
+## Resource hooks and native data
+
+Admin screens may declare `parent: "admin.node"`, `"admin.server"`, `"admin.egg"`, or `"admin.user"`.
+Their paths become detail tabs and `useCurrentResource()` supplies the typed resource.
+`nav` supports `order`, `group`, `badge`, and `icon`. Parameterized navigation
+requires `nav.params`, for example `{ "tab": "overview" }` for `votes/$tab`.
+`PanelLink`, `usePanelNavigate`, and `usePanelLocation` use the host router; navigation
+by extension id and screen id also works for resource tabs.
+
+`serverQueryOptions`, `serverFilesQueryOptions`, `serverFileContentQueryOptions`,
+`serverStartupQueryOptions`, and `serverBackupsQueryOptions` use core cache keys and
+transport. Pass the server UUID for files, startup, and backups to share core entries.
+`serverLogsQueryOptions(uuid, lines?)` reads the latest console output (at most 100
+lines, oldest first) and needs the `websocket.connect` permission.
+Their hooks accept selectors, and `invalidateServerData(uuid, domains)` returns the
+host invalidation promise. Curated mutation hooks reuse core updates and serialize
+startup writes. Await `mutateAsync` from a handler wrapped with `useExtensionAction`.
+
+`serverResourcesQueryOptions(uuid)` and `useServerResources(uuid, select?)` read power
+state and resource usage from the cache entry the dashboard's server cards poll, so a
+screen that shows them adds no request of its own. The panel asks Wings at most every 20
+seconds; inside the server area, `useServerWebsocketEvent('stats' | 'status', ...)`
+delivers live values. `invalidateServerData(uuid, ['resources'])` refetches the entry.
+`useSendServerPower(uuid)` takes `{ signal: 'start' | 'stop' | 'restart' | 'kill' }` and
+`useSendServerCommand(uuid)` takes `{ command }`. Both go through the client API, so they
+work without a console socket, are checked against the user's `control.*` permissions by
+the panel, and report failures with the panel's own notification before rejecting.
+
+`useNavigationBlocker(shouldBlock, options?)` asks before unsaved work is left behind:
+router links and `usePanelNavigate`, the browser's back and forward buttons, and closing
+or reloading the tab. Pass a boolean, or a function read at navigation time when the
+answer lives in a ref. `message` sets the text of the default confirmation,
+`beforeUnload: false` leaves tab close alone, and `confirm(transition)` replaces the
+confirmation with your own decision (resolve `true` to leave); it receives the current
+and next `pathname`, `params` and `search`, so navigation within your own screen can pass.
+
+```tsx
+const [dirty, setDirty] = useState(false);
+useNavigationBlocker(dirty, { message: 'Discard your changes to this file?' });
+```
+
+File toolbar, row actions, and selection actions receive typed files, directory,
+selection, and refresh callbacks. `server.startup.form` receives current configuration
+and a guarded Docker image setter. `panel.users.detail.form` supplies the native
+`form`, so contributed `form.AppField` controls share core validation, pending state,
+submission, and persistence. Keep values in that form rather than copying a separate draft. To add fields of your
+own to an admin form, see [Admin form fields](#admin-form-fields). `columns.register('admin.nodes', { id, label,
+component })` adds a typed cell to the native table; servers and eggs are also supported.
+Columns commit atomically and render inside local error boundaries. Table, Tooltip,
+DropdownMenu, and Pagination complement the existing form and dialog primitives. `Empty`
+(with `EmptyHeader`, `EmptyMedia`, `EmptyTitle`, `EmptyDescription`, `EmptyContent`)
+matches the panel's empty states; pass it as a `Table`'s `emptyState`.
+
+`useExtensionTranslation('messages')` loads the provider's registered
+`resources/lang/<locale>/messages.php` group. Extension CSS is built with the extension's own
+Tailwind prefix (see [Styling](#styling)). The Vite preset waits for entry CSS before setup.
+
+The active theme sets the panel's CSS tokens (see [Tokens](THEMES.md#tokens)). Extension utilities read
+the same live tokens (`hw:bg-card`, `hw:w-sidebar`, `hw:p-4` for the prefix `hw`), so an
+extension follows the theme without knowing it. The console and the `theme-color` meta re-read
+their tokens when a stylesheet or an inline property on `<html>` changes; `onThemeChange(listener)`
+gives canvas or chart code the same signal, `readThemeToken('--name')` reads a value, and
+`notifyThemeChange()` reports changes made through the CSSOM. Only the panel's own `theme-color`
+tag follows the token; one registered with `registerHeadTags` is left as rendered.
+
+`useShortcut('g', handler)` binds a key, or `mod+` and a key for Cmd (Ctrl off Apple devices), while
+focus is outside fields, dialogs and menus, and returns its names for `aria-keyshortcuts` and a hint
+(see [Keyboard shortcuts](THEMES.md#keyboard-shortcuts)).
+
+## Conditional screens, badges, and icons
+
+A screen's `when` states where it exists. A screen whose conditions fail is absent from
+navigation and not routable: its URL shows the panel's not-found page.
+
+```json
+{
+    "id": "mods",
+    "area": "server",
+    "path": "mods",
+    "nav": { "label": "Mods", "icon": "blocks", "badge": "Beta" },
+    "when": {
+        "eggTags": { "any": ["minecraft"] },
+        "eggFeatures": { "any": ["eula"] },
+        "match": "any"
+    }
+}
+```
+
+`eggFeatures` and `eggTags` are for `server` screens. Each takes `all` (every value
+present) and/or `any` (at least one), compared without regard to case against the
+server's `egg_features` and `egg_tags`. With both declared they must both pass unless
+`match` is `"any"`. These rules come from the manifest and the server payload, so they
+apply before your bundle has loaded. Egg ids are deliberately not matchable: they differ
+between installations, so decide those cases at runtime from your own configuration.
+
+For anything the manifest cannot express, declare `"when": { "runtime": true }` (any
+area, alone or beside egg rules) and pass a predicate when registering the screen:
+
+```tsx
+function useHasDomains({ server }: ScreenContext) {
+    return useSuspenseQuery(domainsQueryOptions(server!.attributes.uuid)).data.length > 0;
+}
+
+// The third argument is a ScreenOptions object.
+screens.register('subdomains', () => import('./SubdomainsScreen'), {
+    visible: useHasDomains,
+    badge: ({ config }) => (config.maintenance === true ? 'Paused' : undefined),
+});
+```
+
+`visible` and `badge` receive a `ScreenContext` (`user`, `config`, the `server` on server
+screens, the `resource` on admin resource tabs) and are called while rendering their own
+isolated mount, so they may use hooks and suspend; name them `use…` when they do. They
+re-run whenever that data changes. A predicate that throws hides the screen, a badge that
+throws leaves the manifest badge in place, and both are reported against your extension
+without disturbing the rest of the navigation.
+
+A `runtime` screen stays hidden until its bundle has loaded and the predicate has
+returned `true`, and its URL shows a spinner in the meantime; entries are never listed
+first and withdrawn later. That is why the flag lives in the manifest: registering
+`visible` for a screen without it, or omitting `visible` for a screen with it, fails the
+extension at load. Egg rules are checked first, so a predicate only runs where they pass.
+
+`badge` needs no manifest flag. Return a string or number to show it (32 characters at
+most), `null` or `''` for no badge, and `undefined` to keep `nav.badge`, which also shows
+while the bundle loads or the badge suspends.
+
+`nav.icon` accepts any [lucide](https://lucide.dev/icons) icon name in kebab-case, such
+as `life-buoy`. The names this panel ships are listed in `@pterodactyl/sdk/icons.json`;
+a name outside that list renders the default icon and is reported by
+`p:extension:doctor`. `<NamedIcon name="life-buoy" />` renders the same icons from the
+panel's copy of lucide, so an icon chosen as data (a setting, an API field) does not
+require bundling the icon set; `loadIconNames()` resolves the available names for a
+picker. Common names render immediately; the rest of the set is one lazily fetched chunk
+shared by every extension. Keep importing icons you reference in code from
+`lucide-react` and pass them to `<Icon icon={…} />`.
+
+The top-level `icon` is shown for the extension on the admin extensions page, in place of
+its initials. It is either a lucide icon name, as above, or the path of a PNG, JPEG or
+WebP image inside the package, such as `"icon": "icon.png"`. Images may be at most 512 KB
+and 2048 px per side, and a square image of 128 px or more looks best. The image does
+not have to sit in `dist`: it is served to administrators from the package itself, so it
+shows while the extension is disabled, and `p:extension:pack` adds it to the archive.
+`p:extension:doctor` warns about an image that is missing or unreadable.
+
+```json
+{ "id": "mods", "name": "Mods", "version": "1.0.0", "icon": "icon.png" }
+```
+
+## Author tooling and configuration
+
+`p:extension:make <id>` scaffolds a package in `extensions/<id>`; `--out=<dir>` creates it in
+`<dir>/<id>`. Use `p:extension:doctor <path>`, `p:extension:dev <path> --watch`, and
+`p:extension:pack <path>` for preflight checks, successful-build publishing with browser reload in debug mode, and
+runtime-only archives; pack leaves `*.map` files out unless given `--sourcemaps`, since a map can embed
+your sources. Scaffolds include tests, CI, OpenAPI generation, and styling.
+`@pterodactyl/sdk/testing` supplies `createExtensionTestHost` and `createTestServer`;
+`@pterodactyl/sdk/vitest` supplies aliases and setup for the real runtime, including the
+`ResizeObserver`, `IntersectionObserver` and `matchMedia` jsdom lacks. Unmount the
+wrapper and dispose the host after each test. The test host shares the real cache;
+create one host at a time within a test environment.
+
+Declare `requires.panel`, `requires.sdk`, `requires.php`, and `requires.extensions` as Composer-style
+version constraints in the manifest. Incompatible extensions and dependency cycles
+fail independently. Activation validates the build and runs migrations before enabling
+metadata. Upgrades retain old asset chunks for open sessions. Failed activation restores
+the previous package and asset pointer; partially applied database migrations need manual
+recovery. Successful lifecycle changes invalidate routes and signal queue worker restarts;
+reload the page to replace already evaluated frontend code.
+
+Migrations live in `database/migrations`. The panel registers that directory with
+Laravel's migrator for every enabled extension, so `migrate:status` lists the migrations
+and `migrate:rollback` finds them; a provider does not need to call
+`loadExtensionMigrations()`. Laravel records a migration by its file name, so enabling
+refuses an extension with a migration named like one of the panel's or another installed
+extension's, and `p:extension:doctor` reports it.
+
+A provider reads its settings with `$this->settings()`. Code outside the provider, such as
+a controller or a job, uses the `Pterodactyl\Facades\Extensions` facade:
+`Extensions::settings('billing')` returns the same settings, and
+`Extensions::isAvailable('billing')` tells whether an extension is enabled and running.
+Both return an `ExtensionSettings`: `get($key, $default)`, `set($key, $value)`, and
+`setSecret($key, $value)`, which stores the value encrypted.
+
+Backend settings support `forUser($user)` and `forServer($server)`. Mark secrets with
+`->secret()` to encrypt storage, mask admin output as `********`, and prohibit frontend
+exposure; `->field('password')` is always secret. A secret submitted empty, as its mask,
+or not at all keeps the stored value, whatever its field.
+`->frontend()->frontendType('boolean')` declares and verifies a public value's type. `p:extension:types <path>` generates literal screen ids, registered permissions, and public config
+keys. `defineConfiguredExtension` accepts a parser for runtime configuration and these
+generated types. Undeclared value types remain bounded JSON.
+
+Frontend values reach signed-in users only. `->frontend()->public()` also delivers a
+value to visitors who are not signed in (the login page), so use it only for values
+anyone may read; `public()` requires `frontend()` and cannot be combined with
+`secret()`. Generated types add `ExtensionPublicConfigKey` and `ExtensionPublicConfig`
+for the keys a guest receives; every other key is absent until the user signs in and
+the page reloads.
+
+Submitted values are checked against their field on the server as well as against the
+definition's rules: `text` and `password` take a string or number, `number` a number,
+`toggle` a boolean, and `select` one of its option values (compared strictly, so `'25'`
+does not match `25`). `null` passes all of them. A `number`, `toggle` or `select` default
+has to pass the same check.
+
+Beyond `text`, `password`, `number`, `toggle`, and `select`, settings have five typed
+fields, each validated server-side and rendered by the admin Extensions form:
+
+- `->color()`: a hex colour (`#rgb`, `#rgba`, `#rrggbb`, `#rrggbbaa`) or a numeric
+  `oklch(L C H [/ A])` colour, stored lower case. Nothing else is accepted, so the value
+  is safe to place in a style rule. Clearing it restores the default.
+- `->textarea(maxLength: 5000)`: a multi-line string with normalized line endings.
+- `->multiselect($options)`: a list of the declared string or integer option values, in
+  declaration order.
+- `->list(itemRules: ['max:255'], maxItems: 50)`: an ordered list of strings; every item
+  must pass the item rules.
+- `->file(mimes: ExtensionSettingFiles::IMAGES, maxKilobytes: 1024)`: an admin upload.
+  The type is decided from the content against the allow-list (PNG, JPEG, GIF, WebP and
+  AVIF by default; ICO, WOFF, WOFF2 and SVG only when listed). An SVG must be plain SVG:
+  scripts, event handlers, animation, embedded documents, `javascript:` or non-image
+  `data:` links, and elements or attributes from other XML vocabularies (editor metadata
+  included) are refused. The file is stored under a random name on the
+  `extensions.files_disk` disk, which must be private (a public disk is refused, so files
+  are only served with the panel's sandboxing headers), and `get()` and `ctx.config`
+  return its URL under `/extension-files/<id>/` or the default (a URL or `null`).
+  Replacing or clearing a file deletes the old one; removing the extension deletes them
+  all. Files are uploaded through
+  `POST`/`DELETE /api/admin/extensions/<id>/settings/<input>/file`, never through a
+  settings update.
+
+These fields imply their `frontendType` (`string` or `array`; a colour or file with a
+`null` default stays JSON) and none of them can be `->secret()`.
+
+`->tab('Storage')` puts a field in a section of the admin form, chosen from a dropdown
+above the form; sections appear in the order their first field is defined. Once any
+field names a tab, fields without one are shown under "General", which comes first. A
+form with no tabbed fields has no dropdown. Sections only group the form: every field is
+saved together, and keys and validation are unchanged.
+
+The package exports `manifest.schema.json` for editor completion. Frontend scaffolds
+reference it with `$schema`; the server validates every package before activation.
+
+Use `ExtensionJobProgress::begin($extensionId, $user, $server, $permission)` to create
+a namespaced job snapshot, then `update($extensionId, $id, $percent, $message, $status)`
+from workers. User jobs are private to their creator and root admins. Server jobs with
+an extension permission are readable by users who still have that permission; otherwise
+they remain creator-only. `useExtensionJobProgress(id, { serverUuid })` polls running
+jobs, recovers on reconnect, and stops when the job finishes or access expires. Use a
+shared cache store for workers and web requests. Snapshots expire after
+`extensions.progress_retention_seconds` (one hour by default); they are progress UI,
+not a durable job audit log.
+
+## Admin form fields
+
+An extension can add its own fields to the admin create and edit forms of users, servers,
+nodes, eggs, locations, mounts and database hosts. The panel validates them with the form,
+saves them in the same transaction, and returns them on the resource.
+
+Declare the fields in PHP with a `Fields` class and register it from the provider, one
+class per model:
+
+```php
+use Illuminate\Validation\Rule;
+use Pterodactyl\Extensions\Fields;
+use Pterodactyl\Models\User;
+
+$this->registerFields(User::class, UserRole::class);
+
+final class UserRole extends Fields
+{
+    public function rules(): array
+    {
+        return ['role' => ['nullable', 'integer', Rule::exists(Role::class, 'id')]];
+    }
+
+    public function values(User $user): array
+    {
+        return ['role' => RoleAssignment::query()->whereKey($user->id)->value('role_id')];
+    }
+
+    public function save(User $user, array $values): void
+    {
+        RoleAssignment::query()->updateOrCreate(['user_id' => $user->id], ['role_id' => $values['role']]);
+    }
+}
+```
+
+Every method is optional. The panel calls them through the container, like the methods of
+a FormRequest, so each can type-hint the model it extends and any other dependency. A model
+parameter always receives the model being changed, never the signed-in user, and every
+method but `values()` and `save()` also runs while the model is created, so a model
+parameter there must be nullable. Registering a class that breaks either rule fails the
+provider's boot.
+
+- `rules()` validates the extension's values on their own, so `required_if:plan,pro` refers
+  to the extension's own `plan`. They run for every extension the signed-in user may change
+  when the model is created, whether or not the request sends its values, and when an
+  update includes the extension under `extensions`, even with no values. The admin forms
+  include every extension they show, so `required` holds there on create and on every
+  edit, like the core fields beside it. An update that leaves the extension out leaves its
+  values alone. A `?User $user` parameter receives the model when updating and null when
+  creating.
+- `values($model)` returns the current values, keyed by field. Values are strings, numbers,
+  booleans, null, or lists of those.
+- `save($model, array $values)` stores the validated values; the parameter must be named
+  `$values`. It runs inside the transaction that writes the model, after its row is written
+  and before Wings is contacted, so throwing rolls the whole change back. Put work that has
+  to wait for the commit in `DB::afterCommit()`.
+- `authorize()` decides whether the signed-in user may see and change the values; type-hint
+  `#[CurrentUser] User $admin` to get them. A request that sends values it refuses gets a 403.
+  Only root admins reach these endpoints, and `$admin->can()` passes every check for a root
+  admin, so decide on something else, such as the admin's id or a role the extension keeps.
+- `secrets()` lists the fields that hold credentials. Their values are encrypted when the
+  panel stores them and returned as `********`. A save that sends the mask, or leaves the
+  field out, keeps the stored value, and `save()` receives it. A save that sends null or an
+  empty string clears it, so a `required` rule then fails. An empty secret is returned as
+  null, so sending back what the form loaded clears nothing.
+- `attributes()` and `messages()` name the fields in validation messages and replace them,
+  as on a FormRequest.
+
+Leave out `values()` and `save()` and the panel stores the values for you, apart from the
+extension's other settings: read them with `$this->settings()->fields($user)`. Settings from
+`for()`, `forUser()` and `forServer()` never include them, so an extension that shows users
+their own settings cannot expose admin fields. Implement both to keep the values in your
+own tables, where you can index, join and query them. Implementing only one fails the
+provider's boot.
+
+The admin API's create and update endpoints accept `extensions: { "<id>": { "<field>": value } }`
+and report errors under `extensions.<id>.<field>`. Responses about one resource include
+`attributes.extensions`; lists leave it out. A request that leaves an extension out does not
+run its `save()`, values sent for an extension that is disabled are ignored, and an extension
+whose `values()` throws is recorded as failing and left out of the response. One whose
+methods throw while a save validates its values is recorded as failing too, and the request
+gets a 422 under `extensions.<id>`. Mark the class
+`#[ApplicationApi]` (`Pterodactyl\Extensions\Attributes\ApplicationApi`) to accept and return
+its values on the Application API's user, node, location and server endpoints as well, so a
+billing system that provisions through it can set them.
+
+Draw the fields with `forms.extend()`. The component receives `field(name)`, which binds one
+field to the form: `value`, `setValue`, an `id` for its label, and `error`, the panel's
+message from the last save until the field changes. `values` holds every field of the
+extension: its saved values with the edits made so far. `mode` is `'create'` or `'edit'`,
+and `resource` is the saved resource when editing.
+
+```tsx
+import { useQuery } from '@tanstack/react-query';
+import { definePterodactylExtension, http, Label, Select, type FormExtension } from '@pterodactyl/sdk';
+
+const RoleSelect: FormExtension<{ role: number | null }, 'admin.user'> = ({ field }) => {
+    const role = field('role');
+    const { data: roles = [] } = useQuery(rolesQuery);
+
+    return (
+        <div>
+            <Label htmlFor={role.id}>Role</Label>
+            <Select
+                id={role.id}
+                value={role.value ?? 0}
+                options={[{ value: 0, label: 'No role' }, ...roles.map((r) => ({ value: r.id, label: r.name }))]}
+                onChange={(value) => role.setValue(value === 0 ? null : Number(value))}
+            />
+            {role.error && <p className={'input-help error'}>{role.error}</p>}
+        </div>
+    );
+};
+
+export default definePterodactylExtension({
+    setup({ forms }) {
+        forms.extend('admin.user', RoleSelect);
+    },
+});
+```
+
+The forms are `admin.user`, `admin.server` (the create form and the details form),
+`admin.node`, `admin.egg`, `admin.location`, `admin.mount` and `admin.database_host`. The
+panel draws each extension's component under its name, inside an error boundary. Every save
+sends all values of every extension it draws, edited or not, so their rules run each time
+and `save()` receives the complete values. When editing, an extension whose values the
+panel did not return is not drawn or sent, so a save cannot write over them.
+
+## Backend provider API
+
+The manifest's `provider` class is loaded through a map of PSR-4 prefixes to package
+directories, such as `{ "Acme\\Billing\\": "src" }`. Scaffolds keep it in `composer.json`
+under `autoload.psr-4`, where Composer, editors and static analysis read it too; an
+`autoload` map in `extension.json` takes its place when present. A prefix cannot equal, contain
+or sit inside `Pterodactyl\`, `Illuminate\`, `Laravel\`, `Symfony\` or a namespace of the
+panel's Composer packages, and enabling fails while another enabled extension autoloads an
+overlapping prefix. Extension class loaders are registered behind the panel's, so once an
+extension's `vendor/autoload.php` has returned, a class the panel or its packages provide
+always comes from the panel.
+
+Composer names the class `vendor/autoload.php` declares after the lock file's hash unless
+`config.autoloader-suffix` sets it, so two packages installed from the same requirements
+declare the same class, and PHP cannot recover from declaring it twice. The panel refuses
+to enable or load an extension whose suffix the panel or another enabled extension already
+uses. Give each extension a suffix of its own in its `composer.json`:
+
+```json
+{ "config": { "autoloader-suffix": "AcmeBillingExtension" } }
+```
+
+Build `vendor/` with `composer install --no-dev --optimize-autoloader` before packing.
+`p:extension:doctor` and `p:extension:pack` read `vendor/composer/installed.json` and warn
+about development packages left in `vendor/`, about `composer.json` requirements the
+panel's copy of a package does not satisfy, and about bundled packages the panel loads at
+another version. None of these stop the extension from loading, but its code runs with the
+panel's copy of any package both ship.
+
+Providers can use `listenToServerOperations` for immutable `provision`, `install`,
+`reinstall`, `backup`, `delete`, `suspend`, `unsuspend`, and `transfer` results. Results
+dispatch after commit and carry identifiers only (`serverUuid`, `operation`, `successful`,
+`resourceUuid`): after `delete` the server row is gone, so key your own data by server
+uuid. Provisioning fires only when Wings accepts creation, `delete` also fires when a
+failed provisioning is cleaned up, suspension fires only for a change Wings accepted, and
+`transfer` reports both outcomes. Listener failures are attributed to the extension. The
+`backup completed` websocket event carries the backup's `uuid` in its payload.
+
+### Wrapping core actions
+
+`wrapAction($contract, $decorator)` runs extension code around any action contract under
+`Pterodactyl\Contracts\` that the panel binds per caller (not as a shared singleton). The
+wrapper runs around every call to that contract, including the calls core makes internally,
+such as `DeleteServer` dropping databases through `DeletesDatabases`. The decorator receives
+the implementation that would otherwise be used and returns an implementation of the same
+contract:
+
+```php
+$this->wrapAction(DeletesServers::class, fn (DeletesServers $inner): DeletesServers => new PurgeDnsRecords($inner, $this->app->make(DnsRecords::class)));
+
+final class PurgeDnsRecords implements DeletesServers
+{
+    public function __construct(private readonly DeletesServers $inner, private readonly DnsRecords $dns) {}
+
+    public function withForce(bool $bool = true): self
+    {
+        $this->inner->withForce($bool);
+
+        return $this;
+    }
+
+    public function delete(Server $server): void
+    {
+        $serverId = $server->id;
+        $this->inner->delete($server);
+        // The core action returned, so the server is gone. Use DB::afterCommit() for
+        // work that must also wait for a transaction opened by the caller.
+        DB::afterCommit(fn () => $this->dns->purge($serverId));
+    }
+}
+```
+
+These core actions order their work as follows, and wrappers of the contracts they call
+run outside their transactions:
+
+- `InitiatesBackups` creates the backup row in a transaction, then asks Wings to start the
+  backup. A backup Wings rejects is stored as failed. Backups rotated out to make room are
+  deleted through `DeletesBackups` only after Wings accepts the new one; a failed rotation
+  delete is reported, not thrown.
+- `DeletesServers` deletes the panel rows in a transaction, then drops each remote database
+  through `DeletesDatabases`. The `Database` it passes is already deleted from the panel. A
+  failed drop is reported and the rest are dropped.
+- `InitiatesTransfers` calls Wings after the transfer records commit. A transfer Wings
+  rejects is marked failed through `FailsTransfers`.
+- `RotatesDatabasePasswords` logs the rotation after its transaction around the remote user
+  change commits.
+
+The wrapper owns the call: it decides whether and when to invoke the inner action and
+must forward fluent options such as `withForce()` itself, returning itself. Whatever it
+throws reaches the caller unchanged, and exceptions of the inner action pass through
+untouched. A reported exception raised from the extension's package is recorded against
+the extension. The decorator is skipped while the extension is disabled or failed to boot;
+one that throws or returns another type is recorded and skipped, so the core action always
+resolves. Extensions wrap in load order, the last one outermost. The actions that install,
+enable, disable, remove and configure extensions (`Contracts\Extensions\*`) and activate
+themes (`Contracts\Themes\*`) cannot be wrapped; asking for one fails the provider's boot.
+
+Core controllers resolve these contracts, not the classes behind them. Renaming a server from the client API calls
+`UpdatesServerDetails`. Toggling a backup lock from the admin API calls `TogglesBackupLocks`.
+Deleting an allocation block calls `DeletesAllocations` once per allocation. Disabling
+two-factor, by an admin or by the user, calls `DisablesTwoFactor`, which clears the TOTP
+secret. Changing a password, from the account page or with a reset link, calls
+`UpdatesUserPasswords`. Changing a Docker image calls `UpdatesServerDockerImage`, both from the client
+endpoint and when an admin startup update (`UpdatesServerStartup`) sets the image. Changing a
+startup variable calls `UpdatesServerVariable`, once from the client endpoint and once per
+variable in a startup update.
+`UpdatesEggs`, `UpdatesEggInstallScripts` and `UpdatesEggVariables` return the updated model.
+Mounts (`CreatesMounts`, `UpdatesMounts`, `DeletesMounts`, `AttachesEggsToMounts`,
+`AttachesNodesToMounts`, `DetachesEggsFromMounts`, `DetachesNodesFromMounts`), tags
+(`CreatesTags`, `UpdatesTags`, `DeletesTags`), API keys (`UpdatesApiKeys`, and `DeletesApiKeys` for
+application and account keys alike), account SSH keys (`CreatesSshKeys`, `DeletesSshKeys`),
+egg variable deletion (`DeletesEggVariables`) and the server install-status toggle
+(`TogglesServerInstallStatus`) have contracts of their own as well.
+
+Resolve the same contracts from the container to call core behaviour instead of
+reimplementing it. An action that takes an input array validates it with the same rules
+as the API, whoever calls it, and throws a `ValidationException` naming the field that
+failed; values arrive as Laravel's rules accept them, so `"1"` is a boolean and `"25"` an
+integer. Pass the field names the Admin API uses. Extension form field values for a model
+go under `extensions` and are only accepted from a request that validated them.
+
+An action that changes a server or an account writes the `server:*` or `user:*` activity
+entry for that change itself, so it shows on the server's or user's activity feed whoever
+calls it. A call from an extension, a console command or the Application API is logged the
+same way as one from the client API, with the signed-in user, if there is one, as the
+actor. The admin API also writes its own `admin:*` entry to the admin activity log. A
+wrapper that does not call the inner action leaves no entry. Reading a file and downloading
+a file or a backup are logged by the endpoint the user called, not by `ReadsFileContents`
+or `GeneratesBackupDownloadLinks`.
+
+Beside the mutating actions, these read or complete on your behalf:
+
+| Contract | Call |
+| --- | --- |
+| `Contracts\Files\ReadsFileContents` | `read($server, $path, ?int $maxBytes = null): string`, bounded by the panel's editable file size unless a limit is given. |
+| `Contracts\Files\ListsDirectories` | `list($server, $directory = '/')`: the directory's `DaemonFileObject` entries. |
+| `Contracts\Servers\ReadsServerLogs` | `read($server, $lines = 100)`: recent console lines, oldest first, at most `MAX_LINES`. |
+| `Contracts\Servers\ReadsServerState` | `read($server): ServerState`, live state and usage from the cache the client API shares (up to 20 seconds old). |
+| `Contracts\Servers\ChangesServerEgg` | `change($server, $egg, keepVariables: false)`: resets startup, image and variables to the new egg, optionally carrying over values whose names and rules still match. |
+| `Contracts\Servers\UpdatesServerDockerImage` | `update($server, $image)`: sets the Docker image alone, leaving the startup command and install settings as they are. The image is not checked against the egg. |
+| `Contracts\Users\CompletesLogins` | `complete($user)` after you verified a first factor (it issues the two-factor checkpoint when the account needs one), `establish($user)` once every factor has passed, and `pendingCheckpoint()`. |
+
+These actions do not check permissions; authorize the caller first, as the core
+controllers do. They can be wrapped like any other action.
+
+### Commands and scheduled tasks
+
+`registerCommands([CleanLogsCommand::class])` adds artisan commands and
+`registerSchedule(fn (Schedule $schedule) => $schedule->command('myext:clean-logs')->daily())`
+defines tasks on the panel's scheduler. Both exist only while the extension is enabled and
+booted successfully. A command's name and every alias must start with the extension id and
+a colon (`myext:clean-logs`) and must not already exist; a command that breaks either rule
+is left out and recorded against the extension. A scheduled task that fails, or a schedule
+callback that throws, is recorded against the extension; a callback that throws schedules
+nothing. As with Laravel's own commands, one that declares its name with `#[AsCommand]` is
+only constructed when it runs; any other is constructed whenever artisan starts.
+
+`php artisan about` lists every installed extension with its version and state under
+"Extensions".
+
+### Head tags
+
+`registerHeadTags` adds `<meta>` and `<link>` elements to the panel's document head on
+the server, for guests and signed-in users alike:
+
+```php
+$this->registerHeadTags(fn (): array => [
+    ['tag' => 'link', 'rel' => 'manifest', 'href' => '/extensions/pwa/manifest.webmanifest'],
+    ['tag' => 'meta', 'name' => 'theme-color', 'content' => $this->settings()->get('theme_color', '#0f172a')],
+]);
+```
+
+Only `meta` (`name` or `property`, `content`, `media`) and `link` (`rel`, `href`, `sizes`,
+`type`, `media`, `color`, `crossorigin`, `hreflang`, `title`) exist. `rel` is limited to
+`manifest`, icon relations, `alternate`, `canonical`, `search`, `preconnect`, and
+`dns-prefetch`; `href` must be an http(s) URL or a path on the panel. Scripts, stylesheets,
+inline styles, event handlers, `http-equiv`, and the panel's own `csrf-token`, `viewport`,
+`robots`, and `referrer` meta tags are rejected, and values are escaped. An element the
+panel also ships (theme color, web app manifest, favicons) replaces the panel's. A static
+array is validated when registered and an invalid one fails the extension's boot. A
+closure runs when the layout renders and its result is cached for
+`extensions.head_tags_cache_seconds` (60 by default); an invalid result is recorded and
+contributes nothing. Up to 32 tags per extension. A registered `theme-color` is not
+rewritten by the SPA; set the `--theme-color` token instead when the colour belongs to a theme.
+
+### Root paths
+
+Routes outside `/extensions/<id>` need a top-level prefix claimed in the manifest:
+
+```json
+{ "routes": { "root": ["go"] } }
+```
+
+`registerRootRoutes($this->extensionPath('routes', 'root.php'))` mounts the file under
+every claimed prefix, or under one with a second argument; undeclared prefixes are
+refused. Routes run in the `web` group, are throttled per client
+(`extensions.root_routes_per_minute`, 120 by default), are public unless the file adds
+auth middleware, and are named `extensions.<id>.root.<prefix>.<name>`. A prefix is a
+lowercase slug of at most 48 characters, up to eight per extension. Prefixes the panel
+uses (its API, SPA and asset paths, the first segment of any core route, anything in the
+public directory) are rejected when the manifest is read, and enabling fails while another
+enabled extension claims the same prefix. Extension routes, under `/extensions/<id>` or a
+claimed prefix, are matched before the SPA's catch-all route.
+
+## Styling
+
+The panel and every extension compile their own Tailwind stylesheet, and all of them load
+into the same `theme` and `utilities` cascade layers, each sorted on its own. Builds that
+share a class name override each other: an extension's `.flex` beats the panel's
+`.lg:hidden`, and one extension's `.grid-cols-2` beats another's `.sm:grid-cols-3`. Every
+extension therefore builds Tailwind with a prefix of its own, declared in `extension.json`:
+
+```json
+"ui": { "entry": "dist/client.js", "prefix": "hw" }
+```
+
+`ui.prefix` is 2 to 12 lowercase letters (`^[a-z]{2,12}$`, the only characters Tailwind
+accepts). Tailwind variant names (`sm`, `dark`, `hover`, `group`, ...), theme namespaces
+(`color`, `text`, ...), the first segment of the panel's custom properties (`terminal`,
+`layout`, `tw`, ...) and `panel`, `core`, `ptero` are reserved; `manifest.schema.json` lists
+them all. Two enabled extensions cannot share a prefix: install, enable and upgrade fail with
+`Extension "b" cannot use Tailwind prefix "hw": enabled extension "a" also declares it.`
+`p:extension:make` derives a prefix from the id (`hello-world` gives `hw`) or takes `--prefix`.
+
+`src/client/styles.css`, imported from the entry, uses the same prefix on both imports:
+
+```css
+@import 'tailwindcss/theme.css' layer(theme) prefix(hw);
+@import 'tailwindcss/utilities.css' layer(utilities) prefix(hw);
+@import '@pterodactyl/sdk/theme.css';
+@source './**/*.{ts,tsx}';
+```
+
+Do not import `tailwindcss` itself or its preflight (the panel already resets the page), and
+keep the SDK theme last. It maps the panel's tokens, so utilities resolve to the live values
+of the active panel theme: `hw:bg-card` is `var(--card)`, `hw:w-sidebar` is
+`var(--layout-sidebar-width)`, `hw:p-4` is `calc(var(--spacing) * 4)`. Only the semantic
+colours exist (`hw:bg-card`, `hw:text-muted-foreground`); Tailwind's palette
+(`hw:bg-red-500`) is not available.
+
+The prefix is written once, first, as if it were a variant:
+
+| Write | Not | |
+| --- | --- | --- |
+| `hw:flex` | `flex` | An unprefixed class is not in your stylesheet; it only works while the panel happens to emit it. |
+| `hw:lg:hover:bg-accent` | `lg:hw:hover:bg-accent` | The prefix comes before every variant. |
+| `hw:mt-4!` | `!hw:mt-4` | The important modifier stays at the end. |
+| `hw:-mt-2` | `-hw:mt-2` | The minus stays on the utility. |
+| `hw:group` with `hw:group-hover:underline` | `group` | `group` and `peer` markers are prefixed too. |
+| `@apply hw:flex hw:hover:bg-accent;` | `@apply flex;` | `@apply` takes the same prefixed names. |
+
+Hand-written classes are yours to name and belong outside the Tailwind layers. `@utility card`
+defines `hw:card`, and a `@theme` variable `--color-brand` is emitted as `--hw-color-brand`
+and used as `hw:bg-brand`.
+
+Classes passed to SDK components and to a view's `Default` are merged with the component's
+own for the prefix of every enabled extension: `<Button className="hw:mt-4">`
+drops the button's `mt-*` default, per variant, exactly as a panel class would
+(`hw:hover:bg-accent` replaces `hover:bg-primary/90`; `hw:bg-accent` alone does not). In tests
+pass the prefix to `renderView(name, { model, prefix: 'hw' })`.
+
+`p:extension:doctor`, `p:extension:pack`, install and enable all reject a build whose CSS has
+a rule in `@layer utilities` that is not built on a `.hw\:` class, or a custom property in
+`@layer theme` that does not start with `--hw-`, for the prefix that extension declares. A
+build with either layer and no `ui.prefix` is rejected with the line to add.
+
+## Views
+
+Every layout, page and block of the panel is a named view: an engine hook that produces its
+model, and a stack of layers that render it. Classic, the stock UI, is the bottom layer; the
+active theme and its parents stack above it, then extension overrides in load order.
+Each layer receives `{ model, Default, ...inputs, children }`, and `Default` renders the layer
+below. Themes and extensions write layers the same way: [Level 4](THEMES.md#level-4-rebuild-pages)
+of the themes guide covers models, `Default` and placing views, and the
+[view catalogue](THEMES.md#view-catalogue) lists every view with its model, inputs, slots and
+fixtures. Its names, contexts, slots and fixtures also ship as `@pterodactyl/sdk/views.json`.
+
+### Overriding a view
+
+Declare the views an extension overrides in `extension.json` under `ui.views`, with a
+`requires.sdk` constraint such as `>=2.0.0-beta.5 <3.0`, and register each layer with
+`views.override(name, layer)` during `setup`. A layer is a component, or `{ load }` with an
+importer the panel calls when the view first renders. Overrides are not exclusive: several
+enabled extensions and the active theme may override the same view, and each layer's `Default`
+renders the one below. Extension layers stack in load order, each above the extensions it requires
+and otherwise alphabetical by id, so the last one is outermost and decides whether to render
+`<Default />`. To sit above a given extension, list it in `requires.extensions`.
+
+<!-- sample: extension/extension.json -->
+```json
+{
+    "id": "billing",
+    "name": "Billing",
+    "version": "1.0.0",
+    "requires": { "panel": "^2.0.0-dev", "sdk": ">=2.0.0-beta.5 <3.0" },
+    "ui": {
+        "entry": "dist/client.js",
+        "prefix": "bl",
+        "views": ["dashboard.serverCard", "server.files.details"]
+    }
+}
+```
+<!-- /sample -->
+
+<!-- sample: snippets/extension.tsx#override -->
+```tsx
+/** A layer over the server card: it keeps the layers below and adds a note. */
+function ServerCard({ Default, model }: ViewProps<'dashboard.serverCard'>) {
+    return (
+        <>
+            <Default className='bl:gap-3' />
+            {model.state.kind === 'unavailable' && <p className='bl:text-xs'>Ask support about {model.name}.</p>}
+        </>
+    );
+}
+```
+<!-- /sample -->
+
+<!-- sample: snippets/extension.tsx#setup -->
+```tsx
+views.override('dashboard.serverCard', ServerCard);
+views.override('server.files.details', { load: () => import('./FileDetails') });
+```
+<!-- /sample -->
+
+`packages/hello-world` overrides the server card, the file details and the file editor, each with
+a test. Classes passed to `Default` merge with the layer below's under the extension's prefix (see
+[Styling](#styling)).
+
+An extension's own UI goes in slots with `slots.register`; themes restyle it through the UI kit's skins.
+A slot component receives `data` and `compact`, which is true where the theme places the slot
+somewhere narrow, such as an icon rail; render a smaller version there.
+
+The server card and file details render inside core links. Keep interactive controls in action
+slots. The panel retains queries, permissions, navigation, accessible link names, selection, and
+menus. `dashboard.serverCard.identity`, a piece of the card, renders the `dashboard.serverRow.name.after` slot.
+
+### Slots inside views
+
+A view renders the slots listed for it in the catalogue, and a layer that replaces it has to
+render them too, or the extensions mounted there disappear. Rendering `Default` renders the
+slots of the layers below. The catalogue's engine slots of a page are rendered by the engine
+around the page view, so no layer renders or drops them. When a layer leaves out a slot that has
+components, the browser console names it:
+`[views] The "<layer>" layer of "<view>" does not render the "<slot>" slot, so "<extension>" does not show there.`
+
+### File editor
+
+`server.files.editor` replaces the editing surface of `/server/$id/files/edit` and `/files/new`. The panel keeps the route, the new-file name dialog, the write mutation, permission checks and the unsaved-changes guard, whatever the theme draws. `page.server.files.editor` places the breadcrumbs, loading and error screens around it. The layer mounts once per opened document, after its content has loaded.
+
+| Model field | |
+| --- | --- |
+| `path`, `name`, `isNew` | The open file. For a new file `path` is its directory and `name` is empty. |
+| `content` | Text to open: the loaded file, or the restored draft of a new file. It does not change while the document is open. |
+| `Editor` | The panel's code editor, bound to this document and themed with the `--editor-*` tokens. |
+| `language`, `languages`, `setLanguage(mime)` | Syntax hint as a MIME type (`text/x-yaml`), the ones the editor knows, and switching. |
+| `readOnly` | The user lacks `file.update` (or `file.create` for a new file). |
+| `dirty`, `saving` | Derived by the panel from the reported buffer and the running write. |
+| `change(content)`, `read()` | Report the buffer after every edit, and read the last one reported. The panel saves exactly this text. |
+| `save()` | Write the buffer in place; a new file first asks for its name in the panel's dialog. Resolves `false` when read-only, cancelled or failed. |
+| `saveAs(name)` | Write the buffer to a name beside the file, or an absolute path, and open it. Needs `file.create`. |
+
+The view places its pieces as views of their own, each given the editor's model: `server.files.editor.notice`, `server.files.editor.canvas` (the code editor), `server.files.editor.language` and `server.files.editor.actions` (the Save button). Override one to replace that piece; declare it in `ui.views` like any view.
+
+```tsx
+import { useExtensionAction, type ViewProps } from '@pterodactyl/sdk';
+
+export default function Buffer({ model }: ViewProps<'server.files.editor.canvas'>) {
+    const save = useExtensionAction('save', async () => void (await model.save()));
+    return (
+        <textarea
+            defaultValue={model.content}
+            readOnly={model.readOnly}
+            onChange={(event) => model.change(event.target.value)}
+            onKeyDown={(event) => event.ctrlKey && event.key === 's' && (event.preventDefault(), save())}
+        />
+    );
+}
+```
+
+Because the panel holds the buffer, a replaced canvas works with the classic Save button, and the classic editor continues with the user's text if the layer fails to render. Do not add your own `useNavigationBlocker` here.
+
+### File browser
+
+`server.files.manager` replaces the browser on `/server/$id/files`: toolbar, listing and selection bar. The panel keeps the page, the directory query, the selection store, uploads, and every mutation and navigation. `server.files.before` and `server.files.after` stay around the view. It places `server.files.manager.toolbar`, `server.files.manager.list` and `server.files.manager.selection`, each given its model; they render the `server.files.toolbar`, `server.files.rowActions` and `server.files.selectionActions` slots and, in the list, the `server.files.details` view of each row. A layer that draws the browser itself places the ones it keeps with `<View name="server.files.manager.toolbar" model={model} />`.
+
+`model.entries` are `FileManagerEntry` rows of `model.directory` (directories first, at most 250, `truncated` when there are more) with `name`, `path`, `kind`, `size`, `mimetype`, `mode`, `modeBits`, `modifiedAt`, `openable`, `extractable`, the `destination` opening it links to, and the API's `file`. `loading` is true until a directory is first listed, `refreshing` during later fetches. `selection` holds the selected names and `permissions` says which of `create`, `update`, `delete` and `archive` the user has. `breadcrumbs` lead from `container` to the directory, `newFileDestination` opens the editor for a new file, `uploads` lists the uploads in progress, `resolve(name)` shows where a relative name lands, and `slot` is what the file slots receive.
+
+`model.actions` take names in the current directory: `open(name)` enters a directory or opens a text file in the editor, `navigate(directory)`, `newFile()`, `select(names)`, `refresh()`, `createDirectory(name)`, `rename([{ from, to }])` (a relative path in `to` moves), `move(names, directory)`, `remove(names)`, `copy(name)`, `archive(names)`, `extract(name)`, `chmod([{ file, mode }])`, `download(name)`, `upload(files)`, `cancelUpload(id)` and `clearUploads()`. They run the panel's own mutations, with its cache updates and notifications; `remove` and `archive` drop their names from the selection, `rename`, `move` and `chmod` clear it. A call the user has no permission for rejects before any request; the API enforces the same rule. `remove` deletes at once, so confirm first. For files outside the current directory, such as a tree view, use `serverFilesQueryOptions` and the mutation hooks.
+
+```tsx
+export default function Browser({ model }: ViewProps<'server.files.manager'>) {
+    const open = useExtensionAction('open', (name: string) => model.actions.open(name));
+    return (
+        <>
+            <View name='server.files.manager.toolbar' model={model} />
+            <ul aria-busy={model.loading}>
+                {model.entries.map((entry) => (
+                    <li key={entry.path}>
+                        <button disabled={!entry.openable} onClick={() => open(entry.name)}>{entry.name}</button>
+                    </li>
+                ))}
+            </ul>
+        </>
+    );
+}
+```
+
+### Loading and failure
+
+While a bundle that declares a view loads, the view shows its placeholder; mounts of one page share that decision. After five seconds, or when the import or the layer fails, the layers below render instead, and a late bundle cannot replace a view already shown. A layer that throws while rendering falls back to the layer below once; if that one throws too, the view shows the panel's error notice with a Retry. Each failure logs `[extensions] "<id>" failed in view "<view>": <error>` to the browser console. A layer that suspends shows the view's placeholder until it renders, as a theme's lazy view does. Core state remains outside the layer. Use `useExtensionAction` for callbacks.
+
+Test a layer with `renderView(name, { themes, model?, fixture?, input?, prefix?, slots?, strict? })` from the testing entry, described under [Testing](THEMES.md#testing). It renders the view synchronously over classic without issuing core queries; nested views read their fixtures. Pass the extension's layers as the views of a theme, `themes: [{ views: { 'dashboard.serverCard': ServerCard } }]`, and its `ui.prefix` as `prefix`. The model fixtures `createTestServerCard`, `createTestFileDetails`, `createTestFileEditor`, `createTestFileManager` and `createTestFileManagerEntry` build models to pass as `model`, with `vi.fn()` callbacks to assert on `save`, `change` or an action. The render fails with a `ViewLayerError` when a layer throws, or when the layers leave out a slot classic renders for the same fixture; `strict: false` lets them fall back and drop slots as in the panel.
+
+## UI kit
+
+The SDK's components are the panel's design system: `Button`, `Input`, `Select`, `Card`,
+`ListRow`, `Badge`, `Dialog`, `Table`, `Empty` and the rest of the [primitives](THEMES.md#primitives).
+Each one takes its classes from the active theme's skin and marks its parts with `data-ui`,
+`data-part` and its state (`data-color="red"`). An extension built from them looks native under
+every theme, and a theme restyles it without knowing it exists.
+
+A `className` passed to a primitive is appended to its skin's classes, and a conflicting utility
+replaces the skin's: `<Button className="hw:mt-4">` drops the button's own `mt-*` class.
+
+## Themes
+
+A theme is an extension with `"type": "theme"`. It decides how every page of the panel looks, while the
+panel keeps the data, permissions, routing, requests and accessibility. It works with four tools: the
+panel stylesheet and its tokens, skins for the UI kit, views, and the slots those views keep. Only one
+theme is active at a time, and the stock look, classic, is itself a theme. A theme can do everything an
+extension can (a provider, screens, slots, PHP settings) except declare `ui.prefix` or `ui.views`: it
+builds the panel stylesheet itself and overrides views through `defineTheme`, whose `setup` registers
+slots, screens, columns and form fields as an extension's does, while the theme is active.
+
+The themes guide, [THEMES.md](THEMES.md), ships in this package. It starts with a theme of colours and
+fonts in five commands, goes level by level as far as rebuilding pages, and ends with the reference:
+every token, primitive and view.

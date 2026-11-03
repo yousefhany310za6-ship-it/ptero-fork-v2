@@ -1,0 +1,64 @@
+rules:
+    - PHPStan\Rules\DeadCode\UnreachableStatementRule
+    - PHPStan\Rules\DeadCode\UnusedPrivateConstantRule
+    - PHPStan\Rules\DeadCode\UnusedPrivateMethodRule
+
+parameters:
+    level: 10
+    checkConfigTypes: true
+    generalizeEnvReturnType: true
+    parseModelCastsMethod: true
+    stubFiles:
+        - tools/phpstan/stubs/Arr.stub
+        - tools/phpstan/stubs/EloquentHasAttributes.stub
+        - tools/phpstan/stubs/ValidatorFacade.stub
+    typeAliases:
+        ValidationRule: 'string|\Stringable|\Closure|\Illuminate\Contracts\Validation\Rule|\Illuminate\Contracts\Validation\ValidationRule'
+        ValidationRuleSet: 'array<int, ValidationRule>'
+        ValidationRules: 'array<string, ValidationRule|ValidationRuleSet>'
+        NormalizedValidationRules: 'array<string, ValidationRuleSet>'
+        EnvironmentValue: 'bool|float|int|string|null'
+        ApiErrorSource: 'array{line: int, file: string}'
+        ApiErrorMetadata: 'array<string, mixed>'
+        ApiError: 'array{code: string, status: string, detail: string, source?: ApiErrorSource, meta?: ApiErrorMetadata}'
+        ApiErrorOverride: 'array{code?: string, status?: string, detail?: string, source?: ApiErrorSource, meta?: ApiErrorMetadata}'
+        ApiErrorEnvelope: 'array{errors: list<ApiError>}'
+        ViteManifestEntry: 'array{file: string, integrity?: string, css?: list<string>, cssIntegrity?: array<string, string>}'
+        ViteManifest: 'array<string, ViteManifestEntry>'
+        JwtClaims: 'array<non-empty-string, mixed>'
+        SoftwareVersionData: 'array{panel?: string, wings?: string, discord?: string, donations?: string}'
+        NodeConfiguration: 'array{debug: bool, uuid: string, token_id: string, token: string, api: array{host: string, port: int, ssl: array{enabled: bool, cert: string, key: string}, upload_limit: int}, system: array{data: string, sftp: array{bind_port: int}}, allowed_mounts: list<string>, remote: string}'
+        BackupDiskConfig: 'array{}|array{adapter: string, key?: string, secret?: string, token?: string, bucket?: string, prefix?: string, options?: array<string, mixed>, ...<string, mixed>}'
+        S3BackupDiskConfig: 'array{adapter: string, bucket: string, key?: string, secret?: string, token?: string, prefix?: string, options?: array<string, mixed>, ...<string, mixed>}'
+        EggConfigurationFiles: 'array<string, array{find: array<mixed>, ...<string, mixed>}>'
+        EggConfigurationReplacement: 'array{match: array-key, if_value?: array-key, replace_with: mixed}'
+        EggConfigurationOutput: 'array{file: string, replace: list<EggConfigurationReplacement>, ...<string, mixed>}'
+        EggConfigurationOutputs: 'list<EggConfigurationOutput>'
+        DaemonFileObject: 'array{name?: string, mode?: string, mode_bits?: string, size?: int, file?: bool, symlink?: bool, mime?: string, created?: string, modified?: string}'
+        DaemonStats: 'array{state?: string, is_suspended?: bool, utilization?: array{memory_bytes?: int, cpu_absolute?: float|int, disk_bytes?: int, network?: array{rx_bytes?: int, tx_bytes?: int}, uptime?: int}}'
+        MultipartUploadPart: 'array{etag: string, part_number: int}'
+        BackupUploadParts: 'array{parts: list<string>, part_size: int}'
+        GeneralSettingsData: "array{'app:name': string, 'pterodactyl:auth:2fa_required': int, 'app:locale': string}"
+        AdvancedSettingsData: "array{'recaptcha:enabled': string, 'recaptcha:secret_key'?: string, 'recaptcha:website_key': string, 'pterodactyl:guzzle:timeout': int, 'pterodactyl:guzzle:connect_timeout': int, 'pterodactyl:client_features:allocations:enabled': string, 'pterodactyl:client_features:allocations:range_start': int|null, 'pterodactyl:client_features:allocations:range_end': int|null}"
+        MailSettingsData: "array{'mail:mailers:smtp:host': string, 'mail:mailers:smtp:port': int, 'mail:mailers:smtp:encryption': string|null, 'mail:mailers:smtp:username': string|null, 'mail:from:address': string, 'mail:from:name': string|null, 'mail:mailers:smtp:password'?: string}"
+        ExtensionSettingField: 'array{input: string, label: string, help: string|null, tab: string|null, field: string, options: list<array{value: string|int|bool, label: string}>, value: mixed, constraints: array{max_length: int|null, max_items: int|null, max_kilobytes: int|null, accept: list<string>}, visibility: ''admin''|''frontend''|''public''}'
+        ExtensionFieldValue: 'bool|float|int|string|list<bool|float|int|string|null>|null'
+        ExtensionFieldValues: 'array<string, ExtensionFieldValue>'
+        ExtensionFieldInput: 'array<string, ExtensionFieldValues>'
+        ExtensionFieldEntry: 'array{fields: class-string<\Pterodactyl\Extensions\Fields>, registration: \Pterodactyl\Services\Extensions\ExtensionRegistration, applicationApi: bool}'
+        ExtensionScreenMatcher: 'array{any?: list<string>, all?: list<string>}'
+        ExtensionScreenCondition: 'array{eggFeatures?: ExtensionScreenMatcher, eggTags?: ExtensionScreenMatcher, match?: string, runtime?: bool}'
+        ExtensionScreenDefinition: 'array{id: string, area: string, path: string, parent?: string, nav?: array{label: string, exact?: bool, params?: array<string, string>, order?: int, group?: string, badge?: string, icon?: string}, permission?: list<string>, when?: ExtensionScreenCondition}'
+        ExtensionThemeSettingInput: 'array{type: string, label: string, default?: string|int|float|bool|null, help?: string|null, tab?: string|null, token?: string|null, attribute?: string|null, options?: array<string, string>, min?: int|float|null, max?: int|float|null, step?: int|float|null, unit?: string|null, maxLength?: int}'
+        ExtensionThemeInput: 'array{extends?: string, stylesheet?: string|null, schemes?: list<''dark''|''light''>|null, settings?: array<string, ExtensionThemeSettingInput>}'
+        ExtensionManifestInput: 'array{id: string, name: string, version: string, type?: ''extension''|''theme'', requires?: array{panel?: string, sdk?: string, php?: string, extensions?: array<string, string>}, description?: string|null, author?: string|null, provider?: string|null, icon?: string|null, autoload?: array<mixed>, ui?: array{entry: string, mode?: string, prefix?: string, screens?: list<ExtensionScreenDefinition>, views?: list<string>}, theme?: ExtensionThemeInput, routes?: array{root?: list<string>}, ...<string, mixed>}'
+    paths:
+        - app
+    ignoreErrors:
+        # ApiKey is a deliberate custom Sanctum token model (implements HasAbilities and
+        # findToken()); Sanctum's class-string<PersonalAccessToken> generic is narrower
+        # than the extension point it documents.
+        -
+            identifier: argument.type
+            message: '#usePersonalAccessTokenModel#'
+            path: app/Providers/AuthServiceProvider.php

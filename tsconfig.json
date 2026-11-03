@@ -1,0 +1,28 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    // Browser-only ambient types. We deliberately do NOT auto-load @types/node so
+    // node globals (process/Buffer/NodeJS) can't leak in and clash with lib.dom;
+    // everything else resolves through imports under `moduleResolution: bundler`.
+    "types": ["vite/client"],
+    "strict": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "sourceMap": true,
+    "noImplicitReturns": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "verbatimModuleSyntax": false,
+    "paths": {
+      "@/*": ["./resources/scripts/*"],
+      "@feature/*": ["./resources/scripts/components/server/features/*"]
+    }
+  },
+  "include": ["./resources/scripts/**/*"],
+  "exclude": ["node_modules"]
+}

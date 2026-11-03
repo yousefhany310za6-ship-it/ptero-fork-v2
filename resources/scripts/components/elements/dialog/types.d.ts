@@ -1,0 +1,31 @@
+import type React from 'react';
+
+type Callback<T> = ((value: T) => void) | React.Dispatch<React.SetStateAction<T>>;
+
+export interface DialogProps {
+    open: boolean;
+    onClose: () => void;
+}
+
+export type IconPosition = 'title' | 'container' | undefined;
+
+export interface DialogIconProps {
+    type: 'danger' | 'info' | 'success' | 'warning';
+    position?: IconPosition;
+    className?: string;
+}
+
+export interface RenderDialogProps extends DialogProps {
+    hideCloseIcon?: boolean;
+    preventExternalClose?: boolean;
+    title?: React.ReactNode;
+    description?: React.ReactNode;
+    children?: React.ReactNode;
+}
+
+export interface DialogContextType {
+    setIcon: Callback<DialogIconProps | undefined>;
+    setIconPosition: Callback<IconPosition>;
+    /** The state the dialog's skin reads, for parts rendered by its children. */
+    described: boolean;
+}

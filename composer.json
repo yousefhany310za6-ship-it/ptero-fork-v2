@@ -1,0 +1,153 @@
+{
+    "name": "pterodactyl/panel",
+    "description": "The free, open-source game management panel. Supporting Minecraft, Spigot, BungeeCord, and SRCDS servers.",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Matthew Penner",
+            "email": "matthew@pterodactyl.io",
+            "homepage": "https://github.com/matthewpi",
+            "role": "Lead Developer"
+        },
+        {
+            "name": "Dane Everitt",
+            "email": "dane@daneeveritt.com",
+            "homepage": "https://github.com/DaneEveritt",
+            "role": "Developer"
+        }
+    ],
+    "require": {
+        "php": "^8.3",
+        "ext-intl": "*",
+        "ext-json": "*",
+        "ext-mbstring": "*",
+        "ext-pdo": "*",
+        "ext-pdo_mysql": "*",
+        "ext-posix": "*",
+        "ext-zip": "*",
+        "aws/aws-sdk-php": "^3.369",
+        "composer/semver": "^3.4",
+        "guzzlehttp/guzzle": "^7.9.2",
+        "hashids/hashids": "^5.0.2",
+        "knuckleswtf/scribe": "^5.11",
+        "laravel/framework": "^13.0",
+        "laravel/sanctum": "^4.2.0",
+        "laravel/tinker": "^3.0",
+        "lcobucci/jwt": "^5.6.0",
+        "league/flysystem-aws-s3-v3": "^3.30.1",
+        "league/flysystem-memory": "^3.29.0",
+        "phpseclib/phpseclib": "^3.0.47",
+        "pragmarx/google2fa": "~8.0.3",
+        "predis/predis": "^3.3.0",
+        "s1lentium/iptools": "~1.2.0",
+        "spatie/laravel-query-builder": "^6.3.6",
+        "symfony/http-client": "^7.4.0",
+        "symfony/mailgun-mailer": "^7.4.0",
+        "symfony/postmark-mailer": "^7.4.0",
+        "symfony/yaml": "^7.4.0"
+    },
+    "require-dev": {
+        "barryvdh/laravel-ide-helper": "^3.6",
+        "driftingly/rector-laravel": "^2.6",
+        "fakerphp/faker": "^1.24",
+        "larastan/larastan": "^3.8",
+        "laravel/pint": "^1.29",
+        "mockery/mockery": "^1.6",
+        "nunomaduro/collision": "^8.5",
+        "pestphp/pest": "^4.0",
+        "pestphp/pest-plugin-laravel": "^4.0",
+        "pestphp/pest-plugin-type-coverage": "^4.0",
+        "phpstan/extension-installer": "^1.4",
+        "rector/rector": "^2.6",
+        "roave/security-advisories": "dev-latest"
+    },
+    "autoload": {
+        "psr-4": {
+            "Pterodactyl\\": "app/",
+            "Database\\Factories\\": "database/Factories/",
+            "Database\\Seeders\\": "database/Seeders/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Pterodactyl\\Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "setup": [
+            "Composer\\Config::disableProcessTimeout",
+            "@composer install",
+            "@php -r \"file_exists('.env') || copy('.env.example', '.env');\"",
+            "@php -r \"preg_match('/^APP_KEY=./m', file_get_contents('.env')) || passthru(escapeshellarg(PHP_BINARY).' artisan key:generate --ansi');\"",
+            "npm ci",
+            "npm run build",
+            "@php -r \"echo PHP_EOL.'Next: point .env at MySQL/MariaDB (php artisan p:environment:database), then run php artisan migrate --seed.'.PHP_EOL;\""
+        ],
+        "dev": [
+            "Composer\\Config::disableProcessTimeout",
+            "npx concurrently --kill-others --names queue,vite -c \"#93c5fd,#fdba74\" \"php artisan queue:listen --tries=1\" \"npm run dev\""
+        ],
+        "check": [
+            "Composer\\Config::disableProcessTimeout",
+            "npm run lint",
+            "npm run tsc",
+            "npm test",
+            "@test"
+        ],
+        "lint": [
+            "rector",
+            "pint --parallel --cache-file=.pint.cache app bootstrap/app.php bootstrap/tests.php config database routes tests"
+        ],
+        "test:lint": [
+            "pint --test --parallel --cache-file=.pint.cache app bootstrap/app.php bootstrap/tests.php config database routes tests",
+            "rector --dry-run"
+        ],
+        "test:types": "phpstan analyse --memory-limit=2G",
+        "test:type-coverage": [
+            "@putenv __PEST_PLUGIN_ENV=1",
+            "@php -d variables_order=EGPCS vendor/bin/pest --type-coverage --min=100"
+        ],
+        "test:unit": "@php -d memory_limit=2G vendor/bin/pest --bootstrap vendor/autoload.php tests/Unit",
+        "test:integration": "@php -d memory_limit=2G vendor/bin/pest tests/Integration",
+        "test": [
+            "Composer\\Config::disableProcessTimeout",
+            "@php artisan config:clear --ansi",
+            "@test:type-coverage",
+            "@test:unit",
+            "@test:integration",
+            "@test:lint",
+            "@test:types"
+        ],
+        "docs:openapi": "@php artisan scribe:generate --force --no-upgrade-check",
+        "docs:openapi:test": "@php vendor/bin/pest --bootstrap vendor/autoload.php tests/Architecture/OpenApiContractTest.php",
+        "docs:openapi:responses": [
+            "@putenv OPENAPI_VALIDATE=1",
+            "@php -d memory_limit=2G vendor/bin/pest --testsuite Integration"
+        ],
+        "docs:openapi:verify": [
+            "@docs:openapi",
+            "@docs:openapi:test"
+        ],
+        "post-autoload-dump": [
+            "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
+            "@php artisan package:discover --ansi || true"
+        ],
+        "post-install-cmd": [
+            "@php artisan p:environment:addons:run-hooks post-install || true"
+        ]
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "preferred-install": "dist",
+        "sort-packages": true,
+        "platform": {
+            "php": "8.3.0"
+        },
+        "allow-plugins": {
+            "pestphp/pest-plugin": true,
+            "phpstan/extension-installer": true
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

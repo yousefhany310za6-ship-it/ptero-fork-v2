@@ -1,0 +1,74 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { describe, expect, it } from 'vitest';
+import { SLOT_NAMES } from '../../resources/scripts/extensions/registry';
+
+const legacySlotNames = [
+    'nav.items.before',
+    'nav.items.after',
+    'dashboard.before',
+    'dashboard.after',
+    'dashboard.serverRow.name.after',
+    'dashboard.serverRow.metrics.after',
+    'account.overview.before',
+    'account.overview.after',
+    'server.console.before',
+    'server.console.power.after',
+    'server.console.after',
+    'server.files.before',
+    'server.files.after',
+    'panel.overview.after',
+] as const;
+
+const anchorFiles = [
+    '../../resources/scripts/themes/classic/views/auth/LoginPage.tsx',
+    '../../resources/scripts/themes/classic/views/server/users/SubuserForm.tsx',
+    '../../resources/scripts/views/pages.ts',
+    '../../resources/scripts/router/routeTree.ts',
+    '../../resources/scripts/themes/classic/views/layout/AccountLayout.tsx',
+    '../../resources/scripts/themes/classic/views/layout/AdminLayout.tsx',
+    '../../resources/scripts/themes/classic/views/layout/ServerLayout.tsx',
+    '../../resources/scripts/themes/classic/views/layout/AppLayout.tsx',
+    '../../resources/scripts/themes/classic/views/dashboard/ServerList.tsx',
+    '../../resources/scripts/themes/classic/views/account/AccountOverview.tsx',
+    '../../resources/scripts/themes/classic/views/dashboard/ServerCardIdentity.tsx',
+    '../../resources/scripts/themes/classic/views/server/console/ConsolePage.tsx',
+    '../../resources/scripts/themes/classic/views/server/console/Power.tsx',
+    '../../resources/scripts/themes/classic/views/server/files/FilesPage.tsx',
+    '../../resources/scripts/themes/classic/views/server/files/FileManagerToolbar.tsx',
+    '../../resources/scripts/themes/classic/views/server/files/FileManagerSelection.tsx',
+    '../../resources/scripts/themes/classic/views/server/files/FileRows.tsx',
+    '../../resources/scripts/themes/classic/views/server/startup/StartupPage.tsx',
+    '../../resources/scripts/components/admin/nodes/NodeDetailContainer.tsx',
+    '../../resources/scripts/components/admin/servers/ServerDetailContainer.tsx',
+    '../../resources/scripts/components/admin/eggs/EggDetailContainer.tsx',
+    '../../resources/scripts/components/admin/users/UserDetailContainer.tsx',
+    '../../resources/scripts/components/admin/overview/OverviewContainer.tsx',
+];
+
+const anchorSource = anchorFiles.map((file) => readFileSync(resolve(__dirname, file), 'utf8')).join('\n');
+const sdkTypes = readFileSync(resolve(__dirname, './types/extensions/registry.d.ts'), 'utf8');
+
+const publishedSlotNames = () => {
+    const declaration = sdkTypes.match(/export declare const SLOT_NAMES: readonly \[([\s\S]*?)\];/)?.[1] ?? '';
+
+    return [...declaration.matchAll(/["']([^"']+)["']/g)].map((match) => match[1]);
+};
+
+describe('extension slot coverage', () => {
+    it('keeps every original public slot name', () => {
+        expect(SLOT_NAMES).toEqual(expect.arrayContaining(legacySlotNames));
+    });
+
+    it('has no duplicate public slot names', () => {
+        expect(new Set(SLOT_NAMES).size).toBe(SLOT_NAMES.length);
+    });
+
+    it('publishes the exact runtime slot catalog in the SDK types', () => {
+        expect(publishedSlotNames()).toEqual([...SLOT_NAMES]);
+    });
+
+    it.each(SLOT_NAMES)('mounts the %s slot in the application', (name) => {
+        expect(anchorSource, `${name} is public but has no core anchor`).toContain(`'${name}'`);
+    });
+});
