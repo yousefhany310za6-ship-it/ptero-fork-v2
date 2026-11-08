@@ -1,0 +1,416 @@
+/* Generated from kit/settings/settings.css by scripts/kit.mjs for branding. Do not edit here. */
+
+/* The shared extension settings page. Colours come from the panel's theme variables, so it follows the panel, ThemesPlus included. */
+
+.br-sp {
+    --sp-card: var(--card, #1f2329);
+    --sp-border: var(--border, rgb(255 255 255 / 0.08));
+    --sp-fg: var(--foreground, #e7e9ee);
+    --sp-muted: var(--muted-foreground, #9ba1ad);
+    --sp-accent: var(--primary, #3b82f6);
+    --sp-accent-fg: var(--primary-foreground, #fff);
+    --sp-radius: var(--radius, 10px);
+    --sp-hover: color-mix(in oklab, var(--sp-fg) 6%, transparent);
+    display: flex;
+    flex-direction: column;
+    gap: 1.1rem;
+    padding-bottom: 5rem;
+    color: var(--sp-fg);
+}
+
+.br-sp.br-sp-inline {
+    padding-bottom: 0;
+}
+
+.br-sp-head {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1.1rem 1.25rem;
+    border: 1px solid var(--sp-border);
+    border-radius: var(--sp-radius);
+    background:
+        radial-gradient(120% 140% at 0% 0%, color-mix(in oklab, var(--sp-accent) 16%, transparent), transparent 60%),
+        var(--sp-card);
+}
+
+.br-sp-icon {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 2.9rem;
+    height: 2.9rem;
+    border-radius: calc(var(--sp-radius) * 0.9);
+    color: var(--sp-accent);
+    background: color-mix(in oklab, var(--sp-accent) 16%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--sp-accent) 30%, transparent);
+}
+
+.br-sp-title {
+    flex: 1;
+    min-width: 0;
+}
+
+.br-sp-title h1 {
+    font-size: 1.2rem;
+    font-weight: 750;
+    letter-spacing: -0.01em;
+}
+
+.br-sp-title p {
+    margin-top: 0.15rem;
+    font-size: 0.85rem;
+    color: var(--sp-muted);
+}
+
+.br-sp-body {
+    display: grid;
+    grid-template-columns: 14rem minmax(0, 1fr);
+    gap: 1.1rem;
+    align-items: start;
+}
+
+.br-sp-nav {
+    position: sticky;
+    top: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.br-sp-search {
+    margin-bottom: 0.5rem;
+}
+
+.br-sp-nav > button {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.55rem 0.75rem;
+    border-radius: calc(var(--sp-radius) * 0.7);
+    font-size: 0.87rem;
+    font-weight: 550;
+    color: var(--sp-muted);
+    text-align: left;
+    transition:
+        background 0.15s,
+        color 0.15s;
+}
+
+.br-sp-nav > button:hover {
+    color: var(--sp-fg);
+    background: var(--sp-hover);
+}
+
+.br-sp-nav > button[aria-current='page'] {
+    color: var(--sp-fg);
+    background: color-mix(in oklab, var(--sp-accent) 14%, transparent);
+    box-shadow: inset 2px 0 0 var(--sp-accent);
+}
+
+.br-sp-nav small {
+    font-size: 0.7rem;
+    font-variant-numeric: tabular-nums;
+    opacity: 0.7;
+}
+
+.br-sp-dot {
+    width: 0.45rem;
+    height: 0.45rem;
+    border-radius: 50%;
+    background: var(--sp-accent);
+}
+
+.br-sp-card {
+    border: 1px solid var(--sp-border);
+    border-radius: var(--sp-radius);
+    background: var(--sp-card);
+}
+
+.br-sp-empty {
+    display: grid;
+    place-items: center;
+    min-height: 10rem;
+    color: var(--sp-muted);
+    font-size: 0.9rem;
+}
+
+.br-sp-fields {
+    padding: 0.4rem 1.25rem 0.6rem;
+    animation: br-sp-in 0.18s ease-out;
+}
+
+.br-sp-fields > h2 {
+    padding: 0.8rem 0 0.4rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--sp-muted);
+}
+
+@keyframes br-sp-in {
+    from {
+        opacity: 0;
+        transform: translateY(3px);
+    }
+}
+
+.br-sp-field {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.75rem 2rem;
+    padding: 0.95rem 0;
+    border-top: 1px solid var(--sp-border);
+}
+
+.br-sp-fields > h2 + .br-sp-field {
+    border-top: 0;
+}
+
+.br-sp-field.br-sp-wide {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.br-sp-field[data-dirty] .br-sp-label label::after {
+    content: '';
+    display: inline-block;
+    width: 0.4rem;
+    height: 0.4rem;
+    margin-left: 0.45rem;
+    border-radius: 50%;
+    background: var(--sp-accent);
+    vertical-align: 0.15em;
+}
+
+.br-sp-label label {
+    font-size: 0.92rem;
+    font-weight: 600;
+}
+
+.br-sp-label label small {
+    margin-left: 0.5rem;
+    padding: 0.05rem 0.4rem;
+    border-radius: 999px;
+    font-size: 0.68rem;
+    font-weight: 600;
+    color: var(--sp-muted);
+    background: var(--sp-hover);
+}
+
+.br-sp-label p {
+    margin-top: 0.2rem;
+    max-width: 40rem;
+    font-size: 0.8rem;
+    line-height: 1.45;
+    color: var(--sp-muted);
+}
+
+.br-sp-label .br-sp-error {
+    color: var(--destructive, #f85149);
+}
+
+.br-sp-control {
+    display: flex;
+    justify-content: flex-end;
+    min-width: 0;
+}
+
+.br-sp-wide .br-sp-control {
+    justify-content: stretch;
+}
+
+.br-sp-wide .br-sp-control > * {
+    width: 100%;
+}
+
+.br-sp-textarea,
+.br-sp-list input {
+    width: 100%;
+    padding: 0.55rem 0.7rem;
+    border: 1px solid var(--input, var(--sp-border));
+    border-radius: calc(var(--sp-radius) * 0.6);
+    background: var(--background, transparent);
+    color: var(--sp-fg);
+    font: 0.84rem/1.5 var(--font-mono, ui-monospace, monospace);
+    resize: vertical;
+}
+
+.br-sp-textarea:focus,
+.br-sp-list input:focus {
+    outline: 2px solid color-mix(in oklab, var(--sp-accent) 55%, transparent);
+    outline-offset: -1px;
+}
+
+.br-sp-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.br-sp-list-row {
+    display: flex;
+    gap: 0.35rem;
+}
+
+.br-sp-list-row button {
+    flex: none;
+    min-width: 2.2rem;
+    padding: 0 0.6rem;
+    border: 1px solid var(--sp-border);
+    border-radius: calc(var(--sp-radius) * 0.6);
+    color: var(--sp-muted);
+    font-size: 0.8rem;
+}
+
+.br-sp-list-row button:hover:not(:disabled) {
+    color: var(--sp-fg);
+    background: var(--sp-hover);
+}
+
+.br-sp-list-row button:disabled {
+    opacity: 0.4;
+}
+
+.br-sp-list-add input {
+    border-style: dashed;
+}
+
+.br-sp-list small,
+.br-sp-file small {
+    font-size: 0.72rem;
+    color: var(--sp-muted);
+}
+
+.br-sp-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+.br-sp-chips button {
+    padding: 0.35rem 0.8rem;
+    border-radius: 999px;
+    border: 1px solid var(--sp-border);
+    font-size: 0.82rem;
+    color: var(--sp-muted);
+    transition:
+        background 0.15s,
+        color 0.15s,
+        border-color 0.15s;
+}
+
+.br-sp-chips button[aria-pressed='true'] {
+    color: var(--sp-accent-fg);
+    background: var(--sp-accent);
+    border-color: transparent;
+}
+
+.br-sp-color {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.br-sp-color input[type='color'] {
+    width: 2.4rem;
+    height: 2.4rem;
+    padding: 0;
+    border: 1px solid var(--sp-border);
+    border-radius: calc(var(--sp-radius) * 0.6);
+    background: none;
+}
+
+.br-sp-file {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+}
+
+.br-sp-file-preview {
+    display: grid;
+    place-items: center;
+    width: 4.5rem;
+    height: 4.5rem;
+    border: 1px dashed var(--sp-border);
+    border-radius: calc(var(--sp-radius) * 0.7);
+    overflow: hidden;
+    font-size: 0.7rem;
+    color: var(--sp-muted);
+    background: repeating-conic-gradient(var(--sp-hover) 0 25%, transparent 0 50%) 50% / 12px 12px;
+}
+
+.br-sp-file-preview img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+}
+
+.br-sp-save {
+    position: fixed;
+    left: 50%;
+    bottom: 1.25rem;
+    z-index: 40;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.55rem 0.6rem 0.55rem 1.1rem;
+    border: 1px solid var(--sp-border);
+    border-radius: 999px;
+    background: color-mix(in oklab, var(--popover, var(--sp-card)) 92%, transparent);
+    box-shadow: 0 18px 40px -16px rgb(0 0 0 / 0.6);
+    backdrop-filter: blur(10px);
+    font-size: 0.85rem;
+    transform: translateX(-50%);
+    animation: br-sp-rise 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.br-sp-save > span {
+    margin-right: 0.4rem;
+    font-weight: 600;
+}
+
+@keyframes br-sp-rise {
+    from {
+        opacity: 0;
+        transform: translate(-50%, 10px);
+    }
+}
+
+@media (max-width: 860px) {
+    .br-sp-save {
+        animation: none;
+    }
+
+    .br-sp-body {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .br-sp-nav {
+        position: static;
+        flex-direction: row;
+        flex-wrap: wrap;
+    }
+
+    .br-sp-search {
+        width: 100%;
+    }
+
+    .br-sp-field {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .br-sp-control {
+        justify-content: flex-start;
+    }
+
+    .br-sp-save {
+        left: 1rem;
+        right: 1rem;
+        transform: none;
+        border-radius: var(--sp-radius);
+    }
+}

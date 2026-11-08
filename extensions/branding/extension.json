@@ -1,0 +1,35 @@
+{
+    "$schema": "./node_modules/@pterodactyl/sdk/manifest.schema.json",
+    "id": "branding",
+    "name": "Branding",
+    "version": "1.1.0",
+    "requires": {
+        "panel": "^2.0.0-dev",
+        "sdk": ">=2.0.0-beta.4 <3.0",
+        "php": "^8.3"
+    },
+    "description": "Upload your own favicon and show a logo next to or instead of the panel name, in the top bar or the ThemesPlus sidebar.",
+    "icon": "image",
+    "author": "Jason",
+    "provider": "Branding\\BrandingProvider",
+    "autoload": {
+        "Branding\\": "src"
+    },
+    "ui": {
+        "entry": "dist/client.js",
+        "mode": "native",
+        "prefix": "br",
+        "screens": [
+            {
+                "id": "settings",
+                "area": "admin",
+                "path": "branding",
+                "nav": {
+                    "label": "Branding",
+                    "icon": "paintbrush",
+                    "order": 60
+                }
+            }
+        ]
+    }
+}

@@ -1,0 +1,135 @@
+{
+    "$schema": "./node_modules/@pterodactyl/sdk/manifest.schema.json",
+    "id": "troxe-analytics",
+    "name": "Troxe Analytics",
+    "version": "1.0.0",
+    "requires": {
+        "panel": "^2.0.0-dev",
+        "sdk": ">=2.0.0-beta.6 <3.0",
+        "php": "^8.3",
+        "extensions": {
+            "monitoring": "^1.1"
+        }
+    },
+    "description": "Administrator analytics: historical rollups, node and panel resources, customer, network and security insight, incidents and reports. Runs entirely outside the user request path.",
+    "author": "Troxe Hosting",
+    "provider": "TroxeAnalytics\\TroxeAnalyticsProvider",
+    "icon": "chart-column",
+    "ui": {
+        "entry": "dist/client.js",
+        "mode": "native",
+        "prefix": "trx",
+        "screens": [
+            {
+                "id": "overview",
+                "area": "admin",
+                "path": "analytics",
+                "nav": {
+                    "label": "Analytics",
+                    "icon": "chart-column-big",
+                    "group": "Troxe Analytics",
+                    "order": 10
+                }
+            },
+            {
+                "id": "servers",
+                "area": "admin",
+                "path": "analytics/servers",
+                "nav": {
+                    "label": "Servers",
+                    "icon": "server",
+                    "group": "Troxe Analytics",
+                    "order": 20
+                }
+            },
+            {
+                "id": "nodes",
+                "area": "admin",
+                "path": "analytics/nodes",
+                "nav": {
+                    "label": "Nodes",
+                    "icon": "hard-drive",
+                    "group": "Troxe Analytics",
+                    "order": 30
+                }
+            },
+            {
+                "id": "resources",
+                "area": "admin",
+                "path": "analytics/resources",
+                "nav": {
+                    "label": "Resources",
+                    "icon": "cpu",
+                    "group": "Troxe Analytics",
+                    "order": 40
+                }
+            },
+            {
+                "id": "customers",
+                "area": "admin",
+                "path": "analytics/customers",
+                "nav": {
+                    "label": "Customers",
+                    "icon": "users",
+                    "group": "Troxe Analytics",
+                    "order": 50
+                }
+            },
+            {
+                "id": "network",
+                "area": "admin",
+                "path": "analytics/network",
+                "nav": {
+                    "label": "Network",
+                    "icon": "network",
+                    "group": "Troxe Analytics",
+                    "order": 60
+                }
+            },
+            {
+                "id": "security",
+                "area": "admin",
+                "path": "analytics/security",
+                "nav": {
+                    "label": "Security",
+                    "icon": "shield-alert",
+                    "group": "Troxe Analytics",
+                    "order": 70
+                }
+            },
+            {
+                "id": "incidents",
+                "area": "admin",
+                "path": "analytics/incidents",
+                "nav": {
+                    "label": "Incidents",
+                    "icon": "siren",
+                    "group": "Troxe Analytics",
+                    "order": 80
+                }
+            },
+            {
+                "id": "reports",
+                "area": "admin",
+                "path": "analytics/reports",
+                "nav": {
+                    "label": "Reports",
+                    "icon": "file-text",
+                    "group": "Troxe Analytics",
+                    "order": 90
+                }
+            },
+            {
+                "id": "status",
+                "area": "admin",
+                "path": "analytics/status",
+                "nav": {
+                    "label": "Collection",
+                    "icon": "activity",
+                    "group": "Troxe Analytics",
+                    "order": 100
+                }
+            }
+        ]
+    }
+}

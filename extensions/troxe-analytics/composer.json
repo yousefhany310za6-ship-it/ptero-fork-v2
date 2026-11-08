@@ -1,0 +1,11 @@
+{
+    "description": "Admin analytics, historical rollups, security insights, incidents and reports for the panel.",
+    "autoload": {
+        "psr-4": {
+            "TroxeAnalytics\\": "src/"
+        }
+    },
+    "config": {
+        "autoloader-suffix": "TroxeAnalyticsExtension"
+    }
+}

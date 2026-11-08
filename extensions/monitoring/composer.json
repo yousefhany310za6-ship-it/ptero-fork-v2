@@ -1,0 +1,11 @@
+{
+    "description": "Resource history, alerts, panel health and Uptime Kuma push monitors.",
+    "autoload": {
+        "psr-4": {
+            "Monitoring\\": "src/"
+        }
+    },
+    "config": {
+        "autoloader-suffix": "MonitoringExtension"
+    }
+}

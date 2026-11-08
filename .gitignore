@@ -45,7 +45,7 @@ result
 /examples/*/dist
 
 # Local extension development checkouts
-/extensions/
+# /extensions/  # included in fork (sources; per-extension .gitignore excludes dist/node_modules/vendor/*.pteroext)
 
 # Generated SDK test host bundles, core class manifest and packed classic sources
 /packages/sdk/testing-runtime/

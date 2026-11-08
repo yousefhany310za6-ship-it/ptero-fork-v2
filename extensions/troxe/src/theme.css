@@ -1,0 +1,757 @@
+/*
+ * Troxe Hosting identity, inspired by new-troxe-hosting's design system:
+ * monochrome console surfaces, hairline borders, refined depth (sheen + top hairline),
+ * and semantic color accents (success/warning/danger/info/metrics) to break monotony
+ * while keeping the product's clean, premium feel.
+ */
+@import '@pterodactyl/sdk/theme-entry.css';
+/* The product's face: Inter for text, JetBrains Mono for anything that is data. */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+:root {
+    /* The product console rounds at 8/12/16/24px, so the panel follows it. */
+    --radius: 0.75rem;
+    --layout-content-width: 80rem;
+
+    /* Depth on black comes from a hairline plus a fall-off, never from grey fills alone.
+       Elevated surfaces add a faint blue rim so the lift reads as brand light, not as shadow. */
+    --shadow-2xs: 0 0 0 1px var(--border);
+    --shadow-xs: 0 0 0 1px var(--border);
+    --shadow-sm: 0 0 0 1px var(--border), 0 2px 6px -2px rgba(0, 0, 0, 0.6);
+    --shadow-md: 0 0 0 1px var(--border), 0 6px 16px -8px rgba(0, 0, 0, 0.7);
+    --shadow-lg: 0 0 0 1px var(--border), 0 20px 40px -24px rgba(0, 0, 0, 0.9), 0 0 24px -18px var(--brand-edge);
+    --shadow-xl: 0 0 0 1px var(--border), 0 24px 48px -24px rgba(0, 0, 0, 0.9), 0 0 32px -20px var(--brand-edge);
+    --shadow-2xl: 0 0 0 1px var(--border), 0 32px 64px -28px rgba(0, 0, 0, 0.9), 0 0 40px -20px var(--brand-edge);
+}
+
+.dark {
+    --color-scheme: dark;
+    --theme-color: #000000;
+    --background: #000000;
+    --foreground: #f4f4f5;
+
+    /* Console surfaces (new-troxe-hosting): lifted above pure black for legibility. */
+    --card: #0a0a0c;
+    --card-foreground: #f4f4f5;
+    --popover: #131317;
+    --popover-foreground: #f4f4f5;
+    --muted: #0c0c0c;
+    --muted-foreground: #a1a1aa;
+    --sunken: #060607;
+    --border: #1c1c1c;
+    --input: #131317;
+    --input-border: #2a2a2a;
+
+    /* White is the action colour (reference identity); black text sits on it. */
+    --primary: #ffffff;
+    --primary-foreground: #000000;
+    --secondary: #131317;
+    --secondary-foreground: #f4f4f5;
+    --accent: #ffffff;
+    --accent-foreground: #000000;
+    --ring: rgba(255, 255, 255, 0.45);
+
+    /* Semantic state colors — used sparingly to break monotony (badges, status, alerts). */
+    --state-foreground: #000000;
+    --success: #22c55e;
+    --success-foreground: #04120a;
+    --destructive: #ef4444;
+    --destructive-foreground: #ffffff;
+    --warning: #f59e0b;
+    --warning-foreground: #170f02;
+    --caution: #f97316;
+    --caution-foreground: #170c02;
+
+    /* Administrator overrides from the theme settings win over the identity defaults. */
+    --primary: var(--troxe-primary, #ffffff);
+    --success: var(--troxe-success, #22c55e);
+    --destructive: var(--troxe-danger, #ef4444);
+    --warning: var(--troxe-warning, #f59e0b);
+
+    /* Charts take the metric accents, so the graphs and the meters agree. */
+    --chart-1: var(--metric-cpu);
+    --chart-2: var(--metric-mem);
+    --chart-3: var(--metric-disk);
+    --chart-4: var(--metric-rx);
+    --chart-5: var(--metric-tx);
+
+    /* Absolute, not relative: the layouts read this token as a string and set it as an img src. */
+    --brand-logo: url('/extension-files/troxe/d84f3d1ee5e93fe5b94109d57bc3ab8ba46444a5.png');
+
+    --selection: rgba(255, 255, 255, 0.2);
+    --selection-foreground: #ffffff;
+    --scrollbar-thumb: #303030;
+    --scrollbar-thumb-fill: #1c1c1c;
+    --scrollbar-track: transparent;
+
+    /* The terminal and editor keep their ANSI colours: they are function, not brand. */
+    --terminal-background: #050505;
+    --terminal-foreground: #e4e4e7;
+    --terminal-cursor: #ffffff;
+    --terminal-selection: rgba(255, 255, 255, 0.18);
+    --terminal-ansi-black: #18181b;
+    --terminal-ansi-red: #f87171;
+    --terminal-ansi-green: #4ade80;
+    --terminal-ansi-yellow: #fbbf24;
+    --terminal-ansi-blue: #60a5fa;
+    --terminal-ansi-magenta: #c084fc;
+    --terminal-ansi-cyan: #22d3ee;
+    --terminal-ansi-white: #d4d4d8;
+    --terminal-ansi-bright-black: rgba(255, 255, 255, 0.3);
+    --terminal-ansi-bright-red: #fca5a5;
+    --terminal-ansi-bright-green: #86efac;
+    --terminal-ansi-bright-yellow: #fde68a;
+    --terminal-ansi-bright-blue: #93c5fd;
+    --terminal-ansi-bright-magenta: #d8b4fe;
+    --terminal-ansi-bright-cyan: #67e8f9;
+    --terminal-ansi-bright-white: #ffffff;
+
+    --editor-background: #0a0a0c;
+    --editor-foreground: #e4e4e7;
+    --editor-caret: #ffffff;
+    --editor-selection: rgba(255, 255, 255, 0.14);
+    --editor-border: #1c1c1c;
+    --editor-muted: #71717a;
+    --editor-active-line: #131317;
+    --editor-search-match: #3f3f46;
+    --editor-search-match-selected: #52525b;
+    --editor-tooltip: #131317;
+    --editor-tooltip-border: #2a2a2a;
+    --editor-panel-shadow: 0 12px 32px -8px rgb(0 0 0 / 0.7), 0 8px 10px -6px rgb(0 0 0 / 0.6);
+    --editor-dialog-shadow: 0 10px 25px -5px rgb(0 0 0 / 0.6);
+    --editor-selected-foreground: #ffffff;
+    --editor-syntax-keyword: #c084fc;
+    --editor-syntax-name: #f4f4f5;
+    --editor-syntax-function: #60a5fa;
+    --editor-syntax-constant: #fbbf24;
+    --editor-syntax-definition: #e4e4e7;
+    --editor-syntax-type: #22d3ee;
+    --editor-syntax-invalid: #f87171;
+}
+
+/* The dark scheme is the product's only published face, so the light scheme is a tonal inverse. */
+.light {
+    --color-scheme: light;
+    --theme-color: #ffffff;
+
+    --background: #fafafa;
+    --foreground: #18181b;
+    --card: #ffffff;
+    --card-foreground: #18181b;
+    --popover: #ffffff;
+    --popover-foreground: #18181b;
+    --muted: #f4f4f5;
+    --muted-foreground: #52525b;
+    --sunken: #f8f8f8;
+    --border: #e4e4e7;
+    --input: #ffffff;
+    --input-border: #d4d4d8;
+
+    /* Dark accent on light (reference inverse). */
+    --primary: #18181b;
+    --primary-foreground: #ffffff;
+    --secondary: #f4f4f5;
+    --secondary-foreground: #18181b;
+    --accent: #27272a;
+    --accent-foreground: #ffffff;
+    --ring: rgba(24, 24, 27, 0.3);
+
+    --state-foreground: #ffffff;
+    --success: #16a34a;
+    --success-foreground: #ffffff;
+    --destructive: #dc2626;
+    --destructive-foreground: #ffffff;
+    --warning: #d97706;
+    --warning-foreground: #ffffff;
+    --caution: #ea580c;
+    --caution-foreground: #ffffff;
+
+    --primary: var(--troxe-primary, #18181b);
+    --success: var(--troxe-success, #16a34a);
+    --destructive: var(--troxe-danger, #dc2626);
+    --warning: var(--troxe-warning, #d97706);
+
+    --chart-1: var(--metric-cpu);
+    --chart-2: var(--metric-mem);
+    --chart-3: var(--metric-disk);
+    --chart-4: var(--metric-rx);
+    --chart-5: var(--metric-tx);
+
+    --brand-logo: url('/extension-files/troxe/ec4a2fb5116f7f64952410d60d6efa45ddd6b042.png');
+
+    --selection: rgba(24, 24, 27, 0.12);
+    --selection-foreground: #18181b;
+    --scrollbar-thumb: #d4d4d8;
+    --scrollbar-thumb-fill: #e4e4e7;
+    --scrollbar-track: transparent;
+
+    --terminal-background: #050505;
+    --terminal-foreground: #e4e4e7;
+    --terminal-cursor: #ffffff;
+    --terminal-selection: rgba(255, 255, 255, 0.18);
+
+    --editor-background: #ffffff;
+    --editor-foreground: #18181b;
+    --editor-caret: #18181b;
+    --editor-selection: #e4e4e7;
+    --editor-border: #e4e4e7;
+    --editor-muted: #71717a;
+    --editor-active-line: #fafafa;
+    --editor-search-match: #fef3c7;
+    --editor-search-match-selected: #fde68a;
+    --editor-tooltip: #ffffff;
+    --editor-tooltip-border: #e4e4e7;
+    --editor-panel-shadow: 0 12px 32px -12px rgb(24 24 27 / 0.14), 0 6px 10px -8px rgb(24 24 27 / 0.1);
+    --editor-dialog-shadow: 0 10px 25px -8px rgb(24 24 27 / 0.12);
+    --editor-selected-foreground: #18181b;
+    --editor-syntax-keyword: #7c3aed;
+    --editor-syntax-name: #0a0a0a;
+    --editor-syntax-function: #2563eb;
+    --editor-syntax-constant: #b45309;
+    --editor-syntax-definition: #18181b;
+    --editor-syntax-type: #0891b2;
+    --editor-syntax-operator: #27272a;
+    --editor-syntax-string: #15803d;
+    --editor-syntax-invalid: #dc2626;
+}
+
+
+/* The "compact" setting writes data-troxe-compact on <html>; every spacing utility reads --spacing. */
+[data-troxe-compact='true'] {
+    --spacing: 0.2rem;
+}
+
+/* ============================================================
+   The console kit, ported from Troxe Hosting's own design system
+   (new-troxe-hosting/src/index.css): hairline borders, veil surfaces, a
+   seven-step type scale, and the card, chip and meter recipes every
+   server page shares. Ported rather than re-derived so the panel and the
+   product are the same interface.
+   ============================================================ */
+
+.dark {
+    --hairline: #1c1c1c;
+    --hairline-hover: #303030;
+    --ink-secondary: #a1a1aa;
+    --ink-muted: #71717a;
+    --veil: rgba(255, 255, 255, 0.06);
+    --console: #0a0a0c;
+    --console-raised: #131317;
+    --card-sheen: rgba(255, 255, 255, 0.04);
+    --card-edge: rgba(255, 255, 255, 0.18);
+    --meter-track: rgba(255, 255, 255, 0.08);
+
+    /* Subtle brand glow; semantic accents provide color. */
+    --brand-glow: rgba(255, 255, 255, 0.08);
+    --brand-rim: rgba(255, 255, 255, 0.22);
+    --brand-edge: rgba(255, 255, 255, 0.18);
+    --glass: rgba(0, 0, 0, 0.72);
+
+    /* Metric accents: distinct hues for charts/meters (breaks monotony with meaning). */
+    --metric-cpu: #60a5fa;
+    --metric-mem: #a78bfa;
+    --metric-disk: #fbbf24;
+    --metric-rx: #22d3ee;
+    --metric-tx: #34d399;
+    --metric-neutral: #71717a;
+}
+
+.light {
+    --hairline: #e4e4e7;
+    --hairline-hover: #d4d4d8;
+    --ink-secondary: #52525b;
+    --ink-muted: #71717a;
+    --veil: rgba(24, 24, 27, 0.05);
+    --console: #ffffff;
+    --console-raised: #fafafa;
+    --card-sheen: rgba(24, 24, 27, 0.025);
+    --card-edge: rgba(24, 24, 27, 0.12);
+    --meter-track: rgba(24, 24, 27, 0.08);
+
+    --brand-glow: rgba(24, 24, 27, 0.06);
+    --brand-rim: rgba(24, 24, 27, 0.18);
+    --brand-edge: rgba(24, 24, 27, 0.14);
+    --glass: rgba(255, 255, 255, 0.8);
+
+    --metric-cpu: #3b82f6;
+    --metric-mem: #8b5cf6;
+    --metric-disk: #f59e0b;
+    --metric-rx: #06b6d4;
+    --metric-tx: #10b981;
+    --metric-neutral: #a1a1aa;
+}
+
+@theme {
+    --color-hairline: var(--hairline);
+    --color-hairline-hover: var(--hairline-hover);
+    --color-ink-secondary: var(--ink-secondary);
+    --color-ink-muted: var(--ink-muted);
+    --color-veil: var(--veil);
+    --color-console: var(--console);
+    --color-console-raised: var(--console-raised);
+
+    /* The product's faces, so panel and site type match. */
+    --font-sans: 'Inter', system-ui, sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+    /* Seven roles instead of ~21 drifting text-[0.7xrem] values. */
+    --text-micro: 0.68rem;
+    --text-tiny: 0.75rem;
+    --text-small: 0.82rem;
+    --text-body: 0.9rem;
+    --text-lead: 1.05rem;
+    --text-display: 1.5rem;
+
+    --animate-beat: beat 2s ease-in-out infinite;
+    --animate-rise: rise 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/*
+ * The type scale is exposed as `fs-*` rather than `text-*`: tailwind-merge reads an unknown
+ * `text-micro` as a colour, so a `text-ink-muted` later in the same class list silently replaces it.
+ */
+@utility fs-micro {
+    font-size: var(--text-micro);
+    line-height: 1.35;
+}
+
+@utility fs-tiny {
+    font-size: var(--text-tiny);
+    line-height: 1.4;
+}
+
+@utility fs-small {
+    font-size: var(--text-small);
+    line-height: 1.5;
+}
+
+@utility fs-body {
+    font-size: var(--text-body);
+    line-height: 1.55;
+}
+
+@utility fs-lead {
+    font-size: var(--text-lead);
+    line-height: 1.4;
+}
+
+@utility fs-display {
+    font-size: var(--text-display);
+    line-height: 1.15;
+}
+
+/* The aurora: a soft light blob drifting around its own box, transform-only so it never
+   triggers layout — the same keyframes the product site runs behind its hero. */
+@keyframes aurora {
+    0%,
+    100% {
+        transform: translate3d(0, 0, 0) scale(1);
+    }
+    33% {
+        transform: translate3d(8%, -6%, 0) scale(1.12);
+    }
+    66% {
+        transform: translate3d(-7%, 5%, 0) scale(0.94);
+    }
+}
+
+@keyframes meter-pulse {
+    0%,
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.5;
+        transform: scale(0.8);
+    }
+}
+
+@keyframes meter-pulse {
+    0%,
+    100% {
+        opacity: 0.72;
+    }
+    50% {
+        opacity: 1;
+    }
+}
+
+/* Cards arrive in one lift, staggered by the page rather than per component. */
+@keyframes rise {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+@layer components {
+    /* The console surface: a sheen and a top hairline lift the card off a black page. */
+    /* The inset radius for the small boxes that sit inside a card. */
+    .troxe-inner {
+        border-radius: 0.75rem;
+    }
+    .troxe-card {
+        position: relative;
+        overflow: hidden;
+        border: 1px solid var(--hairline);
+        border-radius: 1rem;
+        background-color: var(--console);
+        background-image: linear-gradient(180deg, var(--card-sheen), transparent 45%);
+        transition:
+            border-color 0.18s ease,
+            box-shadow 0.18s ease,
+            transform 0.18s ease;
+    }
+
+    .troxe-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        right: 0;
+        left: 0;
+        height: 1px;
+        background-image: linear-gradient(90deg, transparent, var(--card-edge), transparent);
+        pointer-events: none;
+    }
+
+    /* A status tint in the top-left corner; --card-glow is set per state. */
+    .troxe-glow {
+        background-image:
+            radial-gradient(700px circle at 0% 0%, var(--card-glow, transparent), transparent 60%),
+            linear-gradient(180deg, var(--card-sheen), transparent 45%);
+    }
+
+    /* The brand tint, for the one or two surfaces per page that should read as important. */
+    .troxe-glow-brand {
+        --card-glow: var(--brand-glow);
+        background-image:
+            radial-gradient(640px circle at 8% 0%, var(--card-glow), transparent 62%),
+            linear-gradient(180deg, var(--card-sheen), transparent 45%);
+    }
+
+    /* A card that is a link: it lifts on pointer and answers with a blue rim, not with light. */
+    .troxe-card--link:hover {
+        border-color: var(--hairline-hover);
+        box-shadow:
+            0 0 0 1px var(--brand-rim),
+            0 18px 36px -26px rgba(0, 0, 0, 0.9);
+        transform: translateY(-1px);
+    }
+
+    .troxe-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        border: 1px solid var(--hairline);
+        border-radius: 9999px;
+        background: var(--veil);
+        padding: 0.125rem 0.625rem;
+        font-size: var(--text-tiny);
+        font-weight: 600;
+        color: var(--ink-secondary);
+        white-space: nowrap;
+        transition:
+            border-color 0.16s ease,
+            color 0.16s ease;
+    }
+
+    /* The filled chip: the brand badge, not a label. */
+    .troxe-chip--brand {
+        border-color: transparent;
+        background: var(--primary);
+        color: var(--primary-foreground);
+    }
+
+    .troxe-meter {
+        width: 100%;
+        height: 0.375rem;
+        overflow: hidden;
+        border-radius: 9999px;
+        background: var(--meter-track);
+    }
+
+    .troxe-meter > span {
+        display: block;
+        height: 100%;
+        border-radius: 9999px;
+        background-color: var(--meter-color, var(--primary));
+        transition: width 0.55s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* The disk and memory bars carry a scale, so they are drawn taller. */
+    .troxe-meter.is-thick {
+        height: 0.75rem;
+    }
+
+    .troxe-tick {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 1px;
+        background: color-mix(in oklab, var(--background) 70%, transparent);
+    }
+
+    /* Only a meter fed by the live stream pulses, so a static bar does not flicker. */
+    .troxe-meter.is-live > span {
+        animation: meter-pulse 2.4s ease-in-out infinite;
+    }
+
+    .troxe-icon-btn {
+        display: inline-flex;
+        width: 2rem;
+        height: 2rem;
+        flex-shrink: 0;
+        align-items: center;
+        justify-content: center;
+        border-radius: 0.5rem;
+        color: var(--ink-secondary);
+        transition:
+            background 0.16s ease,
+            color 0.16s ease;
+    }
+
+    .troxe-icon-btn:hover:not(:disabled) {
+        background: var(--veil);
+        color: var(--foreground);
+    }
+
+    .troxe-icon-btn:disabled {
+        opacity: 0.35;
+        cursor: not-allowed;
+    }
+
+    /* The round badge a stat tile and a server row put its icon in. */
+    .troxe-badge-icon {
+        display: inline-flex;
+        flex-shrink: 0;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid color-mix(in oklab, var(--primary) 30%, transparent);
+        border-radius: 9999px;
+        background: color-mix(in oklab, var(--primary) 12%, transparent);
+        color: var(--primary);
+    }
+
+    /* Frosted surfaces: the app bar, the drawer and the bottom bar float over the page. */
+    .troxe-glass {
+        background-color: var(--glass);
+        backdrop-filter: blur(14px) saturate(140%);
+        -webkit-backdrop-filter: blur(14px) saturate(140%);
+    }
+
+    /* The page's aurora backdrop: two soft white light blobs drifting, and a fine grid that beats. */
+    .troxe-backdrop {
+        position: fixed;
+        inset: 0;
+        z-index: 0;
+        pointer-events: none;
+        overflow: hidden;
+    }
+
+    .troxe-backdrop::before,
+    .troxe-backdrop::after {
+        content: '';
+        position: absolute;
+        width: min(46rem, 70vw);
+        aspect-ratio: 1;
+        border-radius: 9999px;
+        background-image: radial-gradient(circle, color-mix(in oklab, var(--primary) 9%, transparent), transparent 62%);
+        filter: blur(40px);
+        will-change: transform;
+    }
+
+    .troxe-backdrop::before {
+        top: -14rem;
+        right: -10rem;
+        animation: aurora 20s ease-in-out infinite;
+    }
+
+    .troxe-backdrop::after {
+        bottom: -16rem;
+        left: -12rem;
+        background-image: radial-gradient(circle, color-mix(in oklab, var(--primary) 7%, transparent), transparent 60%);
+        animation: aurora 26s ease-in-out infinite reverse;
+    }
+
+    /* A growing pool of interfaces at some point has to admit it cannot animate safely. */
+    @media (prefers-reduced-motion: reduce) {
+        .troxe-backdrop::before,
+        .troxe-backdrop::after {
+            animation: none;
+        }
+    }
+
+    /* The log surface keeps a thin hairline scrollbar rather than the platform's. */
+    .troxe-log {
+        scrollbar-width: thin;
+        scrollbar-color: var(--hairline-hover) transparent;
+    }
+
+    .troxe-log::-webkit-scrollbar {
+        width: 8px;
+    }
+
+    .troxe-log::-webkit-scrollbar-thumb {
+        background: var(--hairline-hover);
+        border-radius: 4px;
+    }
+
+    /* The mobile app bar keeps h-14 of content and pushes below the status bar; both read zero
+       until the document opts in with viewport-fit=cover. */
+    .troxe-appbar {
+        height: calc(3.5rem + env(safe-area-inset-top));
+        padding-top: env(safe-area-inset-top);
+    }
+
+    .troxe-drawer {
+        padding-top: env(safe-area-inset-top);
+        padding-bottom: env(safe-area-inset-bottom);
+    }
+
+    /* The mobile tab bar: four destinations, the active one lit. It sits over scrolling content,
+       so it stays nearly solid — a lighter wash lets a heading read through the bar. */
+    .troxe-tabbar {
+        padding-bottom: env(safe-area-inset-bottom);
+        background: color-mix(in oklab, var(--console) 97%, transparent);
+        box-shadow: 0 -18px 36px -28px rgba(0, 0, 0, 0.9);
+    }
+
+    .troxe-tab {
+        display: flex;
+        min-width: 0;
+        flex: 1 1 0;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 0.2rem;
+        padding-block: 0.5rem;
+        font-size: var(--text-micro);
+        font-weight: 600;
+        color: var(--ink-muted);
+        text-decoration: none;
+        transition: color 0.16s ease;
+    }
+
+    .troxe-tab[data-status='active'] {
+        color: var(--primary);
+        text-shadow: 0 0 18px var(--brand-glow);
+    }
+
+    .troxe-tab[data-status='active']::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        width: 2.25rem;
+        height: 2px;
+        border-radius: 9999px;
+        background: var(--primary);
+        box-shadow: 0 0 12px var(--brand-rim);
+    }
+
+    /* A page's cards lift in as it settles, so navigation reads as one move. */
+    .troxe-rise {
+        animation: var(--animate-rise);
+    }
+
+    /* Semantic accent utilities (new-troxe-hosting inspired) for subtle color pops. */
+    .accent-dot {
+        display: inline-block;
+        width: 0.375rem;
+        height: 0.375rem;
+        border-radius: 9999px;
+        background: currentColor;
+    }
+}
+
+/* Motion is decoration: nothing here may move for a user who asked for less of it. */
+@media (prefers-reduced-motion: reduce) {
+    .troxe-card,
+    .troxe-card--link:hover,
+    .troxe-chip,
+    .troxe-tab {
+        transition-duration: 0.01ms;
+    }
+
+    .troxe-rise,
+    .troxe-meter.is-live > span,
+    .animate-beat,
+    .animate-pulse {
+        animation: none;
+    }
+}
+
+/* Core paints the websocket retry notice as a full-bleed red slab. Unlayered, so it
+   outranks the bg-destructive/text-destructive-foreground utilities it ships with. */
+div.bg-destructive.py-2 {
+    padding-block: 0.5rem;
+    border-block: 1px solid var(--hairline);
+    background: var(--veil);
+    color: var(--warning);
+}
+
+div.bg-destructive.py-2 p {
+    color: var(--warning);
+}
+
+/* Core's tab bars — the admin resource pages build theirs in the page — collapse into a "More"
+   dropdown, and behind a toggle, once they run out of room. Everything stays listed here in a
+   wrapping row: the rail holds the navigation, and a page's own tabs are never hidden. */
+[data-troxe-layout] main div.overflow-x-auto.scrollbar-none {
+    overflow: visible;
+}
+
+[data-troxe-layout] main div.overflow-x-auto.scrollbar-none > button,
+[data-troxe-layout] main div.overflow-x-auto.scrollbar-none > div > span:last-child {
+    display: none;
+}
+
+[data-troxe-layout] main div.overflow-x-auto.scrollbar-none > div {
+    display: flex !important;
+    flex-wrap: wrap;
+    gap: 0.125rem 0;
+}
+
+[data-troxe-layout] main div.overflow-x-auto.scrollbar-none > div > a:not(:first-of-type),
+[data-troxe-layout] main div.overflow-x-auto.scrollbar-none > div > div:not(:first-of-type) {
+    margin-left: 0;
+}
+
+[data-troxe-layout] main div.overflow-x-auto.scrollbar-none [data-overflowed] {
+    display: inline-block !important;
+}
+
+/* The admin settings tabs are a plain unwrapping flex row, so on a phone the last one is pushed
+   past the page edge. Let them fold onto a second row instead. */
+[data-troxe-layout] main div.flex:has(> button.border-b-2) {
+    flex-wrap: wrap;
+}
+
+/* The SFTP note and its Launch button share a row, which squeezes the note into four lines. */
+[data-troxe-layout] main div:has(> div.flex-1 > div[class*='border-l-4']) {
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+[data-troxe-layout] main div:has(> div.flex-1 > div[class*='border-l-4']) > div[class*='ml-'] {
+    margin-left: 0;
+}
+
+/*
+ * Sonner anchors toasts to the very top of the viewport, which is where the sticky app bar lives;
+ * on a phone the toast buries the header. Drop them below the bar and give them the card treatment.
+ */
+html [data-sonner-toaster] {
+    --offset-top: 4.5rem;
+    --mobile-offset-top: 4.5rem;
+}
+
+html [data-sonner-toast] {
+    border-color: var(--hairline);
+    border-radius: 0.875rem;
+    box-shadow: 0 18px 40px -22px rgba(0, 0, 0, 0.9);
+}

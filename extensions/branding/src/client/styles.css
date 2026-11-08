@@ -1,0 +1,63 @@
+@import 'tailwindcss/theme.css' layer(theme) prefix(br);
+@import 'tailwindcss/utilities.css' layer(utilities) prefix(br);
+@import '@pterodactyl/sdk/theme.css';
+@source './**/*.{ts,tsx}';
+
+/*
+ * The company name link with the logo in front. Set by classes on <html> that never change while
+ * the page is open, so the name stays put between pages.
+ */
+html.br-has-logo #logo a {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    max-width: 100%;
+    vertical-align: middle;
+}
+
+.br-logo-img {
+    display: block;
+    flex-shrink: 0;
+    width: auto;
+    height: var(--br-logo-h, 28px);
+    max-width: 12rem;
+    object-fit: contain;
+}
+
+/* The logo where the Pterodactyl picture was (the sign-in card): the whole logo, never stretched or cropped. */
+img.br-mascot {
+    width: auto;
+    height: auto;
+    max-width: min(100%, 16rem);
+    max-height: 9rem;
+    margin-inline: auto;
+    object-fit: contain;
+}
+
+/* "Replace" mode: hide the name text but keep the link and the image. */
+html.br-replace #logo a {
+    font-size: 0;
+    gap: 0;
+}
+
+/* ThemesPlus sidebar: the logo can use the rail's full width, and the collapsed rail shows it alone. */
+@media (width >= 64rem) {
+    html[data-th-nav='side'].br-has-logo #logo a {
+        display: flex;
+        flex-wrap: wrap;
+    }
+
+    html[data-th-nav='side'] .br-logo-img {
+        max-width: 100%;
+    }
+
+    html[data-th-nav='side'].br-replace #logo a {
+        justify-content: center;
+    }
+
+    html[data-th-nav='side'][data-th-collapsed].br-has-logo .br-logo-img {
+        max-width: 48px;
+        max-height: 44px;
+        height: auto;
+    }
+}
