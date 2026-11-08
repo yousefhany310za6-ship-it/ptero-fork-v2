@@ -51,3 +51,4 @@ result
 /packages/sdk/testing-runtime/
 /packages/sdk/core-classes.txt
 /packages/sdk/classic/
+extensions/.locks/
