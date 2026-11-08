@@ -133,6 +133,20 @@
             "export": "default"
         }
     },
+    "dashboard.announcements": {
+        "kind": "block",
+        "context": "app",
+        "slots": [],
+        "fixtures": [
+            "empty",
+            "banners",
+            "acknowledged"
+        ],
+        "classic": {
+            "file": "views/dashboard/DashboardAnnouncements.tsx",
+            "export": "default"
+        }
+    },
     "dashboard.serverCard": {
         "kind": "block",
         "context": "app",
@@ -430,6 +444,24 @@
         ],
         "classic": {
             "file": "views/auth/ResetPasswordPage.tsx",
+            "export": "default"
+        }
+    },
+    "page.auth.suspended": {
+        "kind": "page",
+        "context": "auth",
+        "slots": [],
+        "engineSlots": [
+            "auth.suspended.before",
+            "auth.suspended.after"
+        ],
+        "fixtures": [
+            "temporary",
+            "permanent",
+            "bare"
+        ],
+        "classic": {
+            "file": "views/auth/SuspendedAccountPage.tsx",
             "export": "default"
         }
     },

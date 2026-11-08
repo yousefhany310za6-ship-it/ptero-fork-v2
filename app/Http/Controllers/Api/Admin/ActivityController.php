@@ -35,6 +35,7 @@ class ActivityController extends AdminApiController
     #[QueryParam('filter[ip]', 'string', 'Filter activity by originating IP address.', required: false, example: '192.0.2.10')]
     #[QueryParam('filter[user]', 'string', 'Filter activity by the username or email of the user that performed it.', required: false, example: 'admin@example.com')]
     #[QueryParam('filter[user_id]', 'integer', 'Filter activity to a single user by ID. Preferred over filter[user] when the exact user is known.', required: false, example: 1)]
+    #[QueryParam('filter[subject_id]', 'integer', 'Filter activity to actions taken against one account, whoever performed them.', required: false, example: 4)]
     #[QueryParam('filter[event_name]', 'string', 'Filter activity to one exact event name. Preferred over filter[event], which matches substrings.', required: false, example: 'admin:server.build')]
     #[QueryParam('sort', 'string', 'Sort activity by timestamp. Prefix with "-" for descending order.', required: false, example: '-timestamp', enum: ['timestamp', '-timestamp'])]
     #[QueryParam('page', 'integer', 'Page number to return.', required: false, example: 1)]
@@ -44,7 +45,7 @@ class ActivityController extends AdminApiController
     public function __invoke(GetActivityLogsRequest $request): ApiResourceCollection
     {
         $activity = QueryBuilder::for(ActivityLog::query()->where('event', 'like', self::ADMIN_EVENT_PREFIX.'%'))
-            ->allowedFilters([AllowedFilter::partial('event'), AllowedFilter::partial('ip'), ActivityLogFilters::actor($request->string('filter.user')->toString()), ActivityLogFilters::actorId($request->integer('filter.user_id')), AllowedFilter::exact('event_name', 'event')])
+            ->allowedFilters([AllowedFilter::partial('event'), AllowedFilter::partial('ip'), ActivityLogFilters::actor($request->string('filter.user')->toString()), ActivityLogFilters::actorId($request->integer('filter.user_id')), ActivityLogFilters::subjectId($request->integer('filter.subject_id')), AllowedFilter::exact('event_name', 'event')])
             ->allowedSorts(['timestamp'])
             ->defaultSort('-timestamp', '-id')
             ->with('actor')

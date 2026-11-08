@@ -1,3 +1,4 @@
+import type { SuspensionNotice } from '@/api/auth/suspension';
 import { createBrowserHistory, createRouter } from '@tanstack/react-router';
 import { queryClient } from '@/api/queryClient';
 import { buildRouteTree } from '@/router/routeTree';
@@ -31,5 +32,7 @@ declare module '@tanstack/history' {
         token?: string;
         // Set when a request was redirected to /account for 2FA setup.
         twoFactorRedirect?: boolean;
+        // What a refused sign-in tells the account about its suspension, for /auth/suspended.
+        suspension?: Partial<SuspensionNotice>;
     }
 }

@@ -1,5 +1,5 @@
 import type { Server } from '@/api/server/types';
-import type { ServerCardModel } from './dashboard';
+import type { AnnouncementItem, AnnouncementsModel, ServerCardModel } from './dashboard';
 import { statMetric } from './server/state';
 
 export interface TestServerOptions {
@@ -68,6 +68,37 @@ export function createTestServerCard(options: Partial<ServerCardModel> = {}): Se
         permissions: { start: true, stop: true, restart: true, console: true },
         actions: { start: noop, stop: noop, restart: noop },
         sending: false,
+        ...options,
+    };
+}
+
+/** A banner of the dashboard stack for fixtures and tests; `over` replaces its fields. */
+export function createTestAnnouncement(over: Partial<AnnouncementItem> = {}): AnnouncementItem {
+    return {
+        id: 1,
+        version: 1,
+        kind: 'info',
+        displayType: 'banner',
+        tag: null,
+        title: 'Scheduled maintenance',
+        body: 'Nodes will restart tonight at 02:00 UTC.',
+        policy: 'once',
+        requireAck: false,
+        ackedAt: null,
+        actionLabel: null,
+        actionUrl: null,
+        eventStart: null,
+        eventEnd: null,
+        ...over,
+    };
+}
+
+/** The dashboard banner stack's model; `options` replace its fields. */
+export function createTestAnnouncementsModel(options: Partial<AnnouncementsModel> = {}): AnnouncementsModel {
+    return {
+        items: [],
+        busy: false,
+        actions: { acknowledge: noop, dismiss: noop },
         ...options,
     };
 }

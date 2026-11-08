@@ -1,4 +1,5 @@
 export { default as Dashboard } from './Dashboard';
+export { default as DashboardAnnouncements } from './DashboardAnnouncements';
 export { default as ServerList } from './ServerList';
 export { default as ServerCard } from './ServerCard';
 export { default as ServerCardIdentity } from './ServerCardIdentity';

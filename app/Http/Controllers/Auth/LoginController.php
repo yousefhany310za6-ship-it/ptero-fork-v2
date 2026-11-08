@@ -18,6 +18,7 @@ use Knuckles\Scribe\Attributes\Response as ScribeResponse;
 use Knuckles\Scribe\Attributes\Unauthenticated;
 use Pterodactyl\Contracts\Users\CompletesLogins;
 use Pterodactyl\Exceptions\DisplayException;
+use Pterodactyl\Exceptions\Http\AccountSuspendedException;
 use Pterodactyl\Http\Requests\Auth\LoginRequest;
 use Pterodactyl\Models\User;
 
@@ -110,9 +111,11 @@ class LoginController extends AbstractLoginController
     #[ScribeResponse(self::LOGIN_CHECKPOINT_EXAMPLE, description: 'Two-factor checkpoint is required before login can complete.')]
     #[ScribeResponse(self::LOGIN_FAILED_ERROR, status: 400, description: 'The credentials are invalid.')]
     #[ScribeResponse(self::CAPTCHA_FAILED_ERROR, status: 400, description: 'The reCAPTCHA token is invalid or missing.')]
+    #[ScribeResponse(AccountSuspendedException::RESPONSE_EXAMPLE, status: 403, description: 'The password was right and the account is suspended.')]
     public function login(LoginRequest $request, CompletesLogins $logins): JsonResponse
     {
         if ($this->hasTooManyLoginAttempts($request)) {
+            $this->events->throttled($request);
             $this->fireLockoutEvent($request);
             $this->sendLockoutResponse($request);
         }
@@ -133,6 +136,8 @@ class LoginController extends AbstractLoginController
         if (! Hash::check($password, $user->password)) {
             $this->sendFailedLoginResponse($request, $user);
         }
+
+        $this->assertAccountMaySignIn($request, $user);
 
         return $this->sendLoginResponse($logins->complete($user), $request);
     }

@@ -38,6 +38,19 @@ const humanise = (value: string) =>
         )
         .join(' ');
 
+/**
+ * The word an event is named by, in the same words the activity screens use: `admin:user.suspend`
+ * reads as "Suspend" under "User". Exported so a list of one account's administration can say what
+ * happened without inventing a second spelling of the same event.
+ */
+export function eventLabel(event: string): string {
+    const [, remainder = ''] = event.split(':');
+    const separator = remainder.indexOf('.');
+    const action = separator === -1 ? remainder : remainder.slice(separator + 1);
+
+    return humanise(action === '' ? event : action);
+}
+
 /** `server:power.start` lists as "Start" under "Power". */
 export function eventGroups(events: readonly string[]): ActivityEventGroup[] {
     const grouped = new Map<string, ActivityFilterOption[]>();

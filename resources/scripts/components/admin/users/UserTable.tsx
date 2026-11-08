@@ -1,15 +1,26 @@
+import { useState } from 'react';
 import { useStore } from '@tanstack/react-form';
 import type { ColumnDef } from '@tanstack/react-table';
 import { Link } from '@tanstack/react-router';
-import { LockOpen, Star, UserLock } from 'lucide-react';
+import { LockOpen, Star, UserCheck, UserLock, UserX } from 'lucide-react';
 import { deleteAdminUserInput, type AdminUser, useDeleteAdminUser } from '@/api/admin/users/queries';
+import { accountFieldsOf } from '@/api/admin/users/types';
+import { useUnsuspendUser } from '@/api/admin/users/suspensions';
+import Badge from '@/components/elements/Badge';
 import Button from '@/components/elements/Button';
 import { Dialog } from '@/components/elements/dialog';
 import Icon from '@/components/elements/Icon';
 import SpinnerOverlay from '@/components/elements/SpinnerOverlay';
 import DataTableColumnHeader from '@/components/elements/table/DataTableColumnHeader';
-import { actionsColumn, DeleteAction, EditLinkAction, RowActions } from '@/components/elements/table/RowActions';
+import {
+    actionsColumn,
+    DeleteAction,
+    EditLinkAction,
+    RowActionButton,
+    RowActions,
+} from '@/components/elements/table/RowActions';
 import { Form, useAppForm } from '@/components/form';
+import SuspendUserDialog from '@/components/admin/users/SuspendUserDialog';
 import { cn } from '@/lib/cn';
 import dayjs from '@/lib/dayjs';
 
@@ -124,12 +135,88 @@ const UserIdentityCell = ({ user }: { user: AdminUser }) => {
     );
 };
 
+/**
+ * Lifting is a confirmation rather than a form: the decision is already on the record, and what an
+ * administrator needs to read before making it is that nothing is started on the account's behalf.
+ */
+const UnsuspendUserAction = ({ user }: { user: AdminUser }) => {
+    const { id, email } = user.attributes;
+    const unsuspend = useUnsuspendUser(id);
+
+    return (
+        <Dialog.ConfirmTrigger
+            title='Lift this suspension'
+            confirm='Lift suspension'
+            onConfirmed={async (_event, close) => {
+                try {
+                    await unsuspend.mutateAsync();
+                    close();
+                } catch {
+                    // Error toast is handled by the mutation.
+                }
+            }}
+            trigger={({ onClick }) => (
+                <RowActionButton
+                    icon={UserCheck}
+                    label='Lift suspension'
+                    aria-label={`Lift the suspension on ${email}`}
+                    onClick={onClick}
+                />
+            )}
+        >
+            <p className='text-sm leading-relaxed text-muted-foreground'>
+                <span className='font-medium text-foreground'>{email}</span> may sign in again as soon as this is
+                confirmed. The servers it owns are not started: they were stopped when the account was closed, and each
+                one comes back only when somebody starts it on purpose. The suspension record, its message and its
+                support case reference are kept.
+            </p>
+        </Dialog.ConfirmTrigger>
+    );
+};
+
+const SuspendUserAction = ({ user }: { user: AdminUser }) => {
+    const [open, setOpen] = useState(false);
+    const { email } = user.attributes;
+
+    return (
+        <>
+            <RowActionButton
+                icon={UserX}
+                label='Suspend account'
+                aria-label={`Suspend ${email}`}
+                onClick={() => setOpen(true)}
+            />
+            {open && <SuspendUserDialog user={user} open onClose={() => setOpen(false)} />}
+        </>
+    );
+};
+
+const UserAccountStateCell = ({ user }: { user: AdminUser }) => {
+    const account = accountFieldsOf(user.attributes);
+    const suspended = account.status === 'suspended';
+
+    return (
+        <div className='flex flex-col items-start gap-1'>
+            <Badge tone={suspended ? 'danger' : 'success'} size='sm' variant='soft'>
+                {suspended ? 'Suspended' : 'Active'}
+            </Badge>
+            {account.supportCaseId && (
+                <span className='font-mono text-xs text-muted-foreground' title='Support case reference'>
+                    {account.supportCaseId}
+                </span>
+            )}
+        </div>
+    );
+};
+
 const UserActionsCell = ({ user }: { user: AdminUser }) => {
     const { id, email } = user.attributes;
+    const suspended = accountFieldsOf(user.attributes).status === 'suspended';
 
     return (
         <RowActions>
             <EditLinkAction aria-label={`Edit ${email}`} to='/panel/users/$id' params={{ id }} />
+            {suspended ? <UnsuspendUserAction user={user} /> : <SuspendUserAction user={user} />}
             <Dialog.Trigger
                 trigger={({ onClick }) => (
                     <DeleteAction
@@ -166,6 +253,14 @@ export const userColumns = [
         ),
         enableSorting: true,
         meta: { headerClassName: 'hidden w-36 @xl:table-cell', cellClassName: 'hidden w-36 @xl:table-cell' },
+    },
+    {
+        id: 'account_status',
+        accessorFn: (user) => accountFieldsOf(user.attributes).status,
+        header: 'State',
+        cell: ({ row }) => <UserAccountStateCell user={row.original} />,
+        enableSorting: false,
+        meta: { headerClassName: 'hidden w-28 @md:table-cell', cellClassName: 'hidden w-28 @md:table-cell' },
     },
     {
         id: 'security',
@@ -208,6 +303,44 @@ export const userColumns = [
         },
         enableSorting: false,
         meta: { headerClassName: 'hidden w-20 @md:table-cell', cellClassName: 'hidden w-20 @md:table-cell' },
+    },
+    {
+        id: 'last_login_at',
+        accessorFn: (user) => accountFieldsOf(user.attributes).lastLoginAt,
+        header: 'Last sign-in',
+        cell: ({ row }) => {
+            const at = accountFieldsOf(row.original.attributes).lastLoginAt;
+
+            return at ? (
+                <time className='whitespace-nowrap text-xs text-muted-foreground' dateTime={at}>
+                    {dayjs(at).format('MMM D, YYYY')}
+                </time>
+            ) : (
+                <span className='text-xs text-muted-foreground'>never</span>
+            );
+        },
+        enableSorting: false,
+        meta: { headerClassName: 'hidden w-32 @3xl:table-cell', cellClassName: 'hidden w-32 @3xl:table-cell' },
+    },
+    {
+        // Empty for anybody the panel has not answered for: the address is read out of sign-in
+        // history and is sent only to a root administrator, so nothing here decides that.
+        id: 'last_ip',
+        accessorFn: (user) => accountFieldsOf(user.attributes).lastIp,
+        header: 'Last address',
+        cell: ({ row }) => {
+            const ip = accountFieldsOf(row.original.attributes).lastIp;
+
+            return ip ? (
+                <span className='block truncate font-mono text-xs text-muted-foreground' title={ip}>
+                    {ip}
+                </span>
+            ) : (
+                <span className='text-xs text-muted-foreground'>—</span>
+            );
+        },
+        enableSorting: false,
+        meta: { headerClassName: 'hidden w-40 @3xl:table-cell', cellClassName: 'hidden w-40 @3xl:table-cell' },
     },
     {
         id: 'created_at',

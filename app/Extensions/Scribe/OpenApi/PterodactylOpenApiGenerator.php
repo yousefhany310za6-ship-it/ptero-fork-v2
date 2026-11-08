@@ -1475,6 +1475,7 @@ class PterodactylOpenApiGenerator extends OpenApiGenerator
             'applicationCreateServer' => $this->enforceApplicationCreateServerBodySchema($properties),
             'adminUpdateGeneralSettings' => $this->enforceAdminGeneralSettingsBodySchema($properties),
             'adminUpdateMailSettings' => $this->enforceAdminMailSettingsBodySchema($properties),
+            'adminUpdateCaptchaSettings' => $this->enforceAdminCaptchaSettingsBodySchema($properties),
             'adminUpdateMinecraftVersionChangerSettings' => $this->enforceMinecraftVersionChangerSettingsBodySchema($properties),
             'adminUpdateExtensionSettings' => $this->enforceAdminExtensionSettingsBodySchema($properties),
             'adminUpdateThemeSettings' => $this->enforceAdminThemeSettingsBodySchema($properties),
@@ -1564,6 +1565,25 @@ class PterodactylOpenApiGenerator extends OpenApiGenerator
                 'example' => ['Recommended' => ['VANILLA', 'PAPER']],
             ];
         }
+    }
+
+    /**
+     * A rule with no provider is the settings page saying "use the panel default", so null is one of
+     * the values this field genuinely takes. An enum next to `nullable` is read as the whole set of
+     * values, which drops it: null has to be in the list, the way the mail settings already spell out
+     * an encryption that may be absent.
+     *
+     * @param  array<mixed>  $properties
+     */
+    private function enforceAdminCaptchaSettingsBodySchema(array &$properties): void
+    {
+        $enum = data_get($properties, 'rules.items.properties.provider.enum');
+
+        if (! is_array($enum)) {
+            return;
+        }
+
+        Arr::set($properties, 'rules.items.properties.provider.enum', [...$enum, null]);
     }
 
     /**

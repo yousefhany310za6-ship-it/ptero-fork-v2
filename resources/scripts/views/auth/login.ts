@@ -1,7 +1,13 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useField, useForm, useStore } from '@tanstack/react-form';
-import { useLocation, useSearch } from '@tanstack/react-router';
+import { useLocation, useNavigate, useSearch } from '@tanstack/react-router';
 import { useLogin, useLoginCheckpoint } from '@/api/auth/queries';
+import {
+    parseSuspensionNotice,
+    readSuspensionNotice,
+    type SuspensionHistoryState,
+    type SuspensionNotice,
+} from '@/api/auth/suspension';
 import { isString } from '@/lib/objects';
 import { parseRedirectSearch } from '@/router/redirect';
 import { useRouteSlotData } from '@/router/routeSlots';
@@ -9,18 +15,34 @@ import { useOpenLoginCheckpoint } from '@/sdk/navigation';
 import { boundField, fixtureField } from '../forms';
 import { implementViews } from '../registry';
 import { useCaptcha } from './captcha';
-import type { CheckpointFormModel, LoginFormModel } from './types';
+import type { CheckpointFormModel, LoginFormModel, SuspendedAccountModel } from './types';
 
 const required = (message: string) => ({
     onChange: ({ value }: { value: string }) => (value.length >= 1 ? undefined : message),
 });
 
+/**
+ * Carries the refusal to the screen that explains it, in history state and over the login form
+ * themselves. The notice is never in the address: it describes one account to whoever reads it,
+ * and only the person who just proved the password should be reading it.
+ */
+function useOpenSuspendedAccount(): (suspension: SuspensionNotice) => Promise<void> {
+    const navigate = useNavigate();
+
+    return useCallback(
+        (suspension: SuspensionNotice) =>
+            navigate({ to: '/auth/suspended', replace: true, state: { suspension } as never }),
+        [navigate]
+    );
+}
+
 function useLoginFormModel(): LoginFormModel {
     const { redirect } = parseRedirectSearch(useSearch({ strict: false }));
     const openCheckpoint = useOpenLoginCheckpoint();
+    const openSuspension = useOpenSuspendedAccount();
     const route = useRouteSlotData();
     const login = useLogin();
-    const { Captcha, token } = useCaptcha();
+    const { Captcha, token, tokenField } = useCaptcha('auth.login');
     const form = useForm({
         defaultValues: { username: '', password: '' },
         onSubmit: async ({ value }) => {
@@ -32,7 +54,7 @@ function useLoginFormModel(): LoginFormModel {
 
             try {
                 const response = await login.mutateAsync({
-                    body: { user: value.username, password: value.password, 'g-recaptcha-response': captcha },
+                    body: { user: value.username, password: value.password, [tokenField]: captcha },
                 });
 
                 if (response.data.complete) {
@@ -42,7 +64,18 @@ function useLoginFormModel(): LoginFormModel {
                 }
 
                 void openCheckpoint(response.data.confirmation_token);
-            } catch {
+            } catch (error) {
+                // A closed account is owed more than the sentence in a toast: the reference to
+                // quote, the message written for it, and the way to reach support belong on a
+                // page the account holder can read at their own pace.
+                const suspension = parseSuspensionNotice(error);
+
+                if (suspension !== null) {
+                    void openSuspension(suspension);
+
+                    return;
+                }
+
                 // Error toast is handled by the mutation.
             }
         },
@@ -79,6 +112,7 @@ function useCheckpointFormModel(): CheckpointFormModel {
     const state = useLocation().state;
     const token = 'token' in state && isString(state.token) ? state.token : '';
     const { redirect } = parseRedirectSearch(useSearch({ strict: false }));
+    const openSuspension = useOpenSuspendedAccount();
     const checkpoint = useLoginCheckpoint();
     const [recovery, setRecovery] = useState(false);
     const form = useForm({
@@ -96,7 +130,16 @@ function useCheckpointFormModel(): CheckpointFormModel {
                 if (response.data.complete) {
                     window.location.assign(redirect || response.data.intended || '/');
                 }
-            } catch {
+            } catch (error) {
+                // A suspension that landed while the code was being typed answers the same way.
+                const suspension = parseSuspensionNotice(error);
+
+                if (suspension !== null) {
+                    void openSuspension(suspension);
+
+                    return;
+                }
+
                 // Error toast is handled by the mutation.
             }
         },
@@ -118,6 +161,23 @@ function useCheckpointFormModel(): CheckpointFormModel {
             setRecovery((current) => !current);
         },
         login: { to: '/auth/login', search: { redirect } },
+    };
+}
+
+function useSuspendedAccountModel(): SuspendedAccountModel {
+    // The route refuses to render this page without a notice: see the `beforeLoad` on `/auth/suspended`.
+    // Everything it holds came from the panel's own refusal of this sign-in, so there is nothing to
+    // fetch here — and nothing to show to whoever reaches the address without having been refused.
+    const state = useLocation().state;
+    const notice = readSuspensionNotice(state as SuspensionHistoryState);
+
+    return {
+        caseId: notice?.caseId ?? '',
+        message: notice?.message ?? null,
+        permanent: notice?.permanent ?? false,
+        expiresAt: notice?.expiresAt ?? null,
+        support: notice?.support ?? { email: null, discordUrl: null },
+        login: { to: '/auth/login' },
     };
 }
 
@@ -160,6 +220,18 @@ const checkpointFixture = (recovery: boolean): CheckpointFormModel => ({
     login: { to: '/auth/login', search: {} },
 });
 
+function suspendedFixture(overrides: Partial<SuspendedAccountModel> = {}): SuspendedAccountModel {
+    return {
+        caseId: 'A7K2P9',
+        message: 'Reports of abuse against this account were confirmed while they were reviewed.',
+        permanent: false,
+        expiresAt: '2026-11-20T00:00:00+00:00',
+        support: { email: 'help@example.com', discordUrl: 'https://discord.gg/example' },
+        login: { to: '/auth/login' },
+        ...overrides,
+    };
+}
+
 implementViews({
     'page.auth.login': {
         use: useLoginFormModel,
@@ -183,5 +255,15 @@ implementViews({
     'page.auth.checkpoint': {
         use: useCheckpointFormModel,
         fixtures: { code: () => checkpointFixture(false), recovery: () => checkpointFixture(true) },
+    },
+    'page.auth.suspended': {
+        use: useSuspendedAccountModel,
+        fixtures: {
+            temporary: () => suspendedFixture(),
+            permanent: () => suspendedFixture({ permanent: true, expiresAt: null }),
+            // A panel that never configured a support address, and a closure nobody wrote a
+            // message for: the reference is the one thing always worth showing.
+            bare: () => suspendedFixture({ message: null, support: { email: null, discordUrl: null } }),
+        },
     },
 });

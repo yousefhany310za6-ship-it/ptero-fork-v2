@@ -1,8 +1,5 @@
-import { BookOpen, Code2, HeartHandshake, LifeBuoy } from 'lucide-react';
 import { Link, type LinkProps } from '@tanstack/react-router';
-import Icon from '@/components/elements/Icon';
 import { useAdminVersion } from '@/api/admin/version/queries';
-import type { AdminVersion } from '@/api/admin/version/queries';
 import AdminContentBlock from '@/components/admin/AdminContentBlock';
 import OverviewVersionCard from '@/components/admin/overview/OverviewVersionCard';
 import Spinner from '@/components/elements/Spinner';
@@ -24,13 +21,6 @@ const sections: { to: LinkProps['to']; label: string; description: string }[] = 
     { to: '/panel/api', label: 'API Keys', description: 'Issue application API credentials.' },
 ];
 
-const externalLinks = (version: AdminVersion) => [
-    { href: version.discord, label: 'Get Help', icon: LifeBuoy },
-    { href: 'https://pterodactyl.io', label: 'Documentation', icon: BookOpen },
-    { href: 'https://github.com/pterodactyl/panel', label: 'GitHub', icon: Code2 },
-    { href: version.donations, label: 'Support Project', icon: HeartHandshake },
-];
-
 export default function OverviewContainer() {
     const { data: version, error, refetch } = useAdminVersion();
 
@@ -45,30 +35,7 @@ export default function OverviewContainer() {
             description='Manage your users, infrastructure, servers, and panel settings.'
         >
             <Slot name='panel.overview.before' />
-            {version ? (
-                <>
-                    <OverviewVersionCard version={version} />
-                    <div className='mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4'>
-                        {externalLinks(version).map((link) => (
-                            <a
-                                key={link.href}
-                                href={link.href}
-                                target='_blank'
-                                rel='noreferrer'
-                                className={cn(
-                                    'inline-flex items-center justify-center rounded-sm border border-border bg-card px-4 py-3 text-sm font-medium text-foreground no-underline hover:text-accent',
-                                    interactiveSurfaceClass
-                                )}
-                            >
-                                <Icon icon={link.icon} className='mr-2 h-4 w-4' />
-                                {link.label}
-                            </a>
-                        ))}
-                    </div>
-                </>
-            ) : (
-                <Spinner size='large' centered />
-            )}
+            {version ? <OverviewVersionCard version={version} /> : <Spinner size='large' centered />}
             <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'>
                 {sections.map((s) => (
                     <Link

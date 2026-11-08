@@ -8,7 +8,7 @@ import { type ExtensionResourceContext } from "../extensions/resourceContext.js"
 import { type SlotComponentProps, type SlotData, type SlotName } from "../extensions/registry.js";
 import { type PanelDestination, type PanelSearch } from "./navigation.js";
 import type { SdkServer, SdkSiteSettings, SdkUser, ServerWebsocketEvent } from "./index.js";
-export { createTestServer, createTestServerCard, type TestServerOptions } from "../views/fixtures.js";
+export { createTestAnnouncement, createTestAnnouncementsModel, createTestServer, createTestServerCard, type TestServerOptions, } from "../views/fixtures.js";
 export { createTestFileDetails, createTestFileEditor, createTestFileManager, createTestFileManagerEntry, } from "../views/server/fileFixtures.js";
 /** A theme or extension layer of a view that failed, which the strict test renderers throw. */
 export declare class ViewLayerError extends Error {

@@ -23,16 +23,22 @@ use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password;
 use Knuckles\Scribe\Scribe;
+use Pterodactyl\Captcha\CaptchaVerifier;
+use Pterodactyl\Captcha\Providers\ProviderRegistry;
+use Pterodactyl\Captcha\Rules\RuleMatcher;
+use Pterodactyl\Captcha\Rules\RuleRepository;
 use Pterodactyl\Enum\ResourceLimit;
 use Pterodactyl\Extensions\Illuminate\Auth\Passwords\PasswordBrokerManager;
 use Pterodactyl\Extensions\Scribe\Support\PathParameterNames;
 use Pterodactyl\Models\Allocation;
+use Pterodactyl\Models\Announcement;
 use Pterodactyl\Models\ApiKey;
 use Pterodactyl\Models\Backup;
 use Pterodactyl\Models\Database;
 use Pterodactyl\Models\DatabaseHost;
 use Pterodactyl\Models\Egg;
 use Pterodactyl\Models\EggVariable;
+use Pterodactyl\Models\IpBan;
 use Pterodactyl\Models\Location;
 use Pterodactyl\Models\Mount;
 use Pterodactyl\Models\Node;
@@ -42,6 +48,7 @@ use Pterodactyl\Models\Tag;
 use Pterodactyl\Models\Task;
 use Pterodactyl\Models\User;
 use Pterodactyl\Models\UserSSHKey;
+use Pterodactyl\Models\UserSuspension;
 use Pterodactyl\Services\Daemon\DaemonManager;
 use Pterodactyl\Services\Servers\EnvironmentService;
 use ReflectionFunctionAbstract;
@@ -94,6 +101,7 @@ class AppServiceProvider extends ServiceProvider
         }
 
         Relation::enforceMorphMap([
+            'announcement' => Announcement::class,
             'allocation' => Allocation::class,
             'api_key' => ApiKey::class,
             'backup' => Backup::class,
@@ -101,6 +109,7 @@ class AppServiceProvider extends ServiceProvider
             'database_host' => DatabaseHost::class,
             'egg' => Egg::class,
             'egg_variable' => EggVariable::class,
+            'ip_ban' => IpBan::class,
             'location' => Location::class,
             'mount' => Mount::class,
             'node' => Node::class,
@@ -111,6 +120,7 @@ class AppServiceProvider extends ServiceProvider
             'tag' => Tag::class,
             'task' => Task::class,
             'user' => User::class,
+            'user_suspension' => UserSuspension::class,
         ]);
     }
 
@@ -120,6 +130,13 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->singleton(DaemonManager::class);
+
+        // A captcha check resolves its rule and its provider from configuration and the database.
+        // Shared, so a request asks once rather than per injection point.
+        $this->app->singleton(ProviderRegistry::class);
+        $this->app->singleton(RuleRepository::class);
+        $this->app->singleton(RuleMatcher::class);
+        $this->app->singleton(CaptchaVerifier::class);
 
         // Keys registered through setEnvironmentKey() must survive to every consumer,
         // so the service is shared rather than rebuilt on each resolve.

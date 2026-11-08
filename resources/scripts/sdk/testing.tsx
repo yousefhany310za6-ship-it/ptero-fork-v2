@@ -60,7 +60,13 @@ import {
 import { resolvePanelDestination, type PanelDestination, type PanelSearch } from './navigation';
 import type { SdkServer, SdkSiteSettings, SdkUser, ServerWebsocketEvent } from './index';
 
-export { createTestServer, createTestServerCard, type TestServerOptions } from '@/views/fixtures';
+export {
+    createTestAnnouncement,
+    createTestAnnouncementsModel,
+    createTestServer,
+    createTestServerCard,
+    type TestServerOptions,
+} from '@/views/fixtures';
 export {
     createTestFileDetails,
     createTestFileEditor,

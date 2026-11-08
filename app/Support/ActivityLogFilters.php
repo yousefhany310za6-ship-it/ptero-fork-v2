@@ -36,4 +36,21 @@ class ActivityLogFilters
                 ->where('activity_logs.actor_id', $id);
         });
     }
+
+    /**
+     * Actions taken against one account, whoever took them.
+     *
+     * The actor filters answer "what did this administrator do"; this answers "what was done to
+     * this account", which is the question an account's own page asks. Subjects live in their own
+     * table because one action can name more than one thing, so this is an exists-check rather
+     * than a column — and it stays on the indexed morph pair rather than walking the log.
+     */
+    public static function subjectId(int $id): AllowedFilter
+    {
+        return AllowedFilter::callback('subject_id', function (Builder $query) use ($id): void {
+            $query->whereHas('subjects', function (Builder $builder) use ($id): void {
+                $builder->where('subject_type', (new User)->getMorphClass())->where('subject_id', $id);
+            });
+        });
+    }
 }

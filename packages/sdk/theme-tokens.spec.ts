@@ -56,12 +56,19 @@ describe('theme token contract', () => {
         expect(sdkCss).toContain('--container-sidebar: var(--layout-sidebar-width);');
     });
 
-    it('keeps the stock theme-color in step with the Blade shell', () => {
+    // The Blade shell's theme-color is the colour a browser paints before the SPA can sync it, so it
+    // has to agree with the stylesheet that actually renders. This panel ships Troxe as its theme, and
+    // Troxe re-points --theme-color at black and white, so the two are checked against each other.
+    it('keeps the shell theme-color in step with the theme that renders', () => {
         const shell = read('../../resources/views/templates/wrapper.blade.php');
-        const color = /--theme-color:\s*([^;]+);/.exec(panelCss)?.[1];
+        const colors = [...read('../../extensions/troxe/src/theme.css').matchAll(/--theme-color:\s*([^;]+);/g)].map(
+            (match) => match[1].trim()
+        );
 
-        expect(color).toBeDefined();
-        expect(shell).toContain(`<meta name="theme-color" content="${color}" data-theme-token>`);
+        expect(colors.length).toBeGreaterThan(0);
+        expect(
+            colors.some((color) => shell.includes(`<meta name="theme-color" content="${color}" data-theme-token>`))
+        ).toBe(true);
     });
 
     it('only styles text selection once a theme defines the token', () => {

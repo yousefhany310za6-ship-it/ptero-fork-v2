@@ -23,6 +23,26 @@ export interface CheckpointFormModel extends FormModel<'code'> {
     readonly toggleRecovery: () => void;
     readonly login: CorePanelDestination;
 }
+/**
+ * What a closed account is told, and the only way it learns any of it: the panel answers the
+ * sign-in with this instead of a session. Nothing here is the panel's reasoning — the reason
+ * code, the internal note and the administrator who acted stay in the admin area.
+ */
+export interface SuspendedAccountModel {
+    /** The reference to quote to support, which is also how an administrator finds the case. */
+    readonly caseId: string;
+    /** The newest message written for this account, or null when there is none to show. */
+    readonly message: string | null;
+    readonly permanent: boolean;
+    /** When a temporary closure is set to end, as an ISO timestamp; null when it has no end date. */
+    readonly expiresAt: string | null;
+    /** The contacts the panel is configured to answer on; a null pair means support was never set up. */
+    readonly support: {
+        readonly email: string | null;
+        readonly discordUrl: string | null;
+    };
+    readonly login: CorePanelDestination;
+}
 export interface ForgotPasswordFormModel extends AuthFormModel<'email'> {
     readonly login: CorePanelDestination;
 }
@@ -35,6 +55,7 @@ declare module '../registry' {
     interface ViewModels {
         'page.auth.login': LoginFormModel;
         'page.auth.checkpoint': CheckpointFormModel;
+        'page.auth.suspended': SuspendedAccountModel;
         'page.auth.password': ForgotPasswordFormModel;
         'page.auth.passwordReset': ResetPasswordFormModel;
     }

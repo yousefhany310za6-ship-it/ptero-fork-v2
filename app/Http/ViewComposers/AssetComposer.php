@@ -6,7 +6,9 @@ namespace Pterodactyl\Http\ViewComposers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Illuminate\View\View;
+use Pterodactyl\Captcha\CaptchaVerifier;
 use Pterodactyl\Services\Extensions\ExtensionHeadTags;
 use Pterodactyl\Services\Extensions\ExtensionRepository;
 use Pterodactyl\Services\Helpers\AssetHashService;
@@ -24,6 +26,7 @@ class AssetComposer
         private readonly ExtensionHeadTags $extensionHeadTags,
         private readonly ThemeResolver $themes,
         private readonly Request $request,
+        private readonly CaptchaVerifier $captcha,
     ) {}
 
     /**
@@ -44,10 +47,29 @@ class AssetComposer
                 'enabled' => config('recaptcha.enabled', false),
                 'siteKey' => config('recaptcha.website_key', ''),
             ],
+            // Which provider answers, and only its public half. Publishing it can never be the
+            // reason a page fails; a request is still checked by the middleware whichever way this goes.
+            'captcha' => $this->captchaPayload(),
             // Safe mode loads no extension bundles at all.
             'extensions' => $theme->safeMode ? [] : $this->extensionPayload(array_column($theme->chain, 'id')),
             'theme' => $theme->bootstrap(),
         ]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function captchaPayload(): array
+    {
+        try {
+            return $this->captcha->widgetConfiguration();
+        } catch (Throwable $exception) {
+            // Nothing renders a widget, so nothing can be verified from this page. That is a failed
+            // login, not a bypassed one: the middleware still refuses what it cannot prove.
+            Log::error('[captcha] The widget configuration could not be published.', ['exception' => $exception]);
+
+            return ['enabled' => false, 'actions' => []];
+        }
     }
 
     /**

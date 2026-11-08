@@ -27,6 +27,14 @@ class SettingsServiceProvider extends ServiceProvider
         'recaptcha:enabled',
         'recaptcha:secret_key',
         'recaptcha:website_key',
+        'captcha:enabled',
+        'captcha:default_provider',
+        'captcha:providers:hcaptcha:enabled',
+        'captcha:providers:hcaptcha:site_key',
+        'captcha:providers:hcaptcha:secret_key',
+        'captcha:providers:turnstile:enabled',
+        'captcha:providers:turnstile:site_key',
+        'captcha:providers:turnstile:secret_key',
         'pterodactyl:guzzle:timeout',
         'pterodactyl:guzzle:connect_timeout',
         'pterodactyl:console:count',
@@ -35,6 +43,20 @@ class SettingsServiceProvider extends ServiceProvider
         'pterodactyl:client_features:allocations:enabled',
         'pterodactyl:client_features:allocations:range_start',
         'pterodactyl:client_features:allocations:range_end',
+    ];
+
+    /**
+     * Configuration paths that are the same value under another name. reCAPTCHA was configured by
+     * these keys before providers existed, so its saved settings stay the ones that answer for it -
+     * otherwise an administrator could switch the captcha off in one place and leave it on in
+     * another, and only one of those would be read.
+     *
+     * @var array<string, string>
+     */
+    protected static array $aliases = [
+        'recaptcha.enabled' => 'captcha.providers.recaptcha.enabled',
+        'recaptcha.website_key' => 'captcha.providers.recaptcha.site_key',
+        'recaptcha.secret_key' => 'captcha.providers.recaptcha.secret_key',
     ];
 
     /**
@@ -61,6 +83,9 @@ class SettingsServiceProvider extends ServiceProvider
      */
     protected static array $encrypted = [
         'mail:mailers:smtp:password',
+        'recaptcha:secret_key',
+        'captcha:providers:hcaptcha:secret_key',
+        'captcha:providers:turnstile:secret_key',
     ];
 
     /**
@@ -69,6 +94,14 @@ class SettingsServiceProvider extends ServiceProvider
     public static function getEncryptedKeys(): array
     {
         return self::$encrypted;
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public static function getAliases(): array
+    {
+        return self::$aliases;
     }
 
     /**
@@ -119,6 +152,10 @@ class SettingsServiceProvider extends ServiceProvider
             }
 
             $config->set(str_replace(':', '.', $key), $this->cast($value, $default));
+        }
+
+        foreach (self::$aliases as $source => $target) {
+            $config->set($target, $config->get($source));
         }
     }
 

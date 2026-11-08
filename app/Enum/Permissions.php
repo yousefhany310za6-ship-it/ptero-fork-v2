@@ -40,6 +40,10 @@ enum Permissions: string
     case AdminTagsCreate = 'admin:tags.create';
     case AdminTagsUpdate = 'admin:tags.update';
     case AdminTagsDelete = 'admin:tags.delete';
+    case AdminAnnouncementsRead = 'admin:announcements.read';
+    case AdminAnnouncementsCreate = 'admin:announcements.create';
+    case AdminAnnouncementsUpdate = 'admin:announcements.update';
+    case AdminAnnouncementsDelete = 'admin:announcements.delete';
 
     case AdminEggsRead = 'admin:eggs.read';
     case AdminEggsCreate = 'admin:eggs.create';

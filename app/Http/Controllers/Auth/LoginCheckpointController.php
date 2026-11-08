@@ -83,6 +83,7 @@ class LoginCheckpointController extends AbstractLoginController
     public function __invoke(LoginCheckpointRequest $request, CompletesLogins $logins, Google2FA $google2FA): JsonResponse
     {
         if ($this->hasTooManyLoginAttempts($request)) {
+            $this->events->throttled($request);
             $this->sendLockoutResponse($request);
         }
 
@@ -100,6 +101,11 @@ class LoginCheckpointController extends AbstractLoginController
         } catch (ModelNotFoundException) {
             $this->sendFailedLoginResponse($request, null, self::TOKEN_EXPIRED_MESSAGE);
         }
+
+        // Checked before the second factor is spent: a suspension that landed while the
+        // checkpoint was waiting means the account is not signing in, and a recovery token
+        // consumed on the way to that answer is a recovery token gone for nothing.
+        $this->assertAccountMaySignIn($request, $user);
 
         // Recovery tokens go through a slightly different pathway for usage.
         if (($recoveryToken = $request->validated('recovery_token')) !== null) {

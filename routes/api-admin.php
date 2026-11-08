@@ -5,6 +5,8 @@ declare(strict_types=1);
 use Illuminate\Support\Facades\Route;
 use Pterodactyl\Http\Controllers\Api\Admin\ActivityController;
 use Pterodactyl\Http\Controllers\Api\Admin\ActivityFilterController;
+use Pterodactyl\Http\Controllers\Api\Admin\Announcements\AnnouncementController;
+use Pterodactyl\Http\Controllers\Api\Admin\Announcements\AnnouncementTagController;
 use Pterodactyl\Http\Controllers\Api\Admin\ApiKeys\ApiKeyController;
 use Pterodactyl\Http\Controllers\Api\Admin\DatabaseHosts\DatabaseHostController;
 use Pterodactyl\Http\Controllers\Api\Admin\Eggs\EggCatalogController;
@@ -17,9 +19,11 @@ use Pterodactyl\Http\Controllers\Api\Admin\Eggs\ImportEggController;
 use Pterodactyl\Http\Controllers\Api\Admin\Eggs\ReorderVariablesController;
 use Pterodactyl\Http\Controllers\Api\Admin\Eggs\UpdateImportEggController;
 use Pterodactyl\Http\Controllers\Api\Admin\Extensions\ExtensionController;
+use Pterodactyl\Http\Controllers\Api\Admin\IpBans\IpBanController;
 use Pterodactyl\Http\Controllers\Api\Admin\LanguagesController;
 use Pterodactyl\Http\Controllers\Api\Admin\Locations\EligibleNodesController;
 use Pterodactyl\Http\Controllers\Api\Admin\Locations\LocationController;
+use Pterodactyl\Http\Controllers\Api\Admin\LoginEvents\LoginEventController;
 use Pterodactyl\Http\Controllers\Api\Admin\Mounts\AttachEggsController;
 use Pterodactyl\Http\Controllers\Api\Admin\Mounts\AttachNodesController;
 use Pterodactyl\Http\Controllers\Api\Admin\Mounts\DetachEggController;
@@ -52,15 +56,19 @@ use Pterodactyl\Http\Controllers\Api\Admin\Servers\ToggleInstallController;
 use Pterodactyl\Http\Controllers\Api\Admin\Servers\TransferController;
 use Pterodactyl\Http\Controllers\Api\Admin\Servers\TransferProgressController;
 use Pterodactyl\Http\Controllers\Api\Admin\Settings\AdvancedController;
+use Pterodactyl\Http\Controllers\Api\Admin\Settings\CaptchaController;
 use Pterodactyl\Http\Controllers\Api\Admin\Settings\GeneralController;
 use Pterodactyl\Http\Controllers\Api\Admin\Settings\MailController;
 use Pterodactyl\Http\Controllers\Api\Admin\Settings\SettingsController;
+use Pterodactyl\Http\Controllers\Api\Admin\Settings\TestCaptchaController;
 use Pterodactyl\Http\Controllers\Api\Admin\Settings\TestMailController;
+use Pterodactyl\Http\Controllers\Api\Admin\Settings\UpdateCaptchaController;
 use Pterodactyl\Http\Controllers\Api\Admin\Tags\TagController;
 use Pterodactyl\Http\Controllers\Api\Admin\Themes\ThemeController;
 use Pterodactyl\Http\Controllers\Api\Admin\Users\DisableTwoFactorController;
 use Pterodactyl\Http\Controllers\Api\Admin\Users\ExternalController as UserExternalController;
 use Pterodactyl\Http\Controllers\Api\Admin\Users\UserController;
+use Pterodactyl\Http\Controllers\Api\Admin\Users\UserSuspensionController;
 use Pterodactyl\Http\Controllers\Api\Admin\VersionController;
 use Pterodactyl\Http\Middleware\Api\Admin\RequireSessionAuthentication;
 
@@ -131,10 +139,21 @@ Route::prefix('/users')->name('api.admin.users')->group(function (): void {
     // `/external/{external_id}` before `/{user:id}` so the literal is not bound as an id.
     Route::get('/external/{external_id}', UserExternalController::class)->name('.external');
     Route::get('/{user:id}', [UserController::class, 'show'])->name('.view');
+    // An account's own address history. Root administrators only, whatever permissions the
+    // requesting role would otherwise carry — see GetLoginEventsRequest.
+    Route::get('/{user:id}/ip-history', [LoginEventController::class, 'ipHistory'])->name('.ip-history');
 
     Route::post('/', [UserController::class, 'store'])->name('.store');
     Route::post('/{user:id}/disable-2fa', DisableTwoFactorController::class)->name('.disable-2fa');
     Route::put('/{user:id}', [UserController::class, 'update'])->name('.update');
+
+    // Suspension history is read per account, and closing or reopening an account is never
+    // anything but root's. Lifting is a DELETE of the active suspension, not of the account:
+    // the record of the decision outlives it either way.
+    Route::get('/{user:id}/suspensions', [UserSuspensionController::class, 'index'])->name('.suspensions');
+    Route::post('/{user:id}/suspension', [UserSuspensionController::class, 'store'])->name('.suspension.store');
+    Route::delete('/{user:id}/suspension', [UserSuspensionController::class, 'destroy'])->name('.suspension.delete');
+    Route::post('/{user:id}/suspension/message', [UserSuspensionController::class, 'message'])->name('.suspension.message');
 
     Route::delete('/{user:id}', [UserController::class, 'destroy'])->name('.delete');
 });
@@ -429,6 +448,12 @@ Route::prefix('/settings')->name('api.admin.settings')->group(function (): void 
     Route::put('/mail', MailController::class)->name('.mail');
     Route::post('/mail/test', TestMailController::class)->name('.mail.test');
     Route::put('/advanced', AdvancedController::class)->name('.advanced');
+
+    Route::get('/captcha', CaptchaController::class)->name('.captcha');
+    Route::put('/captcha', UpdateCaptchaController::class)->name('.captcha.update');
+    Route::post('/captcha/{provider}/test', TestCaptchaController::class)
+        ->where('provider', '[a-z-]+')
+        ->name('.captcha.test');
 });
 
 /*
@@ -478,4 +503,89 @@ Route::prefix('/api-keys')->name('api.admin.api-keys')->group(function (): void 
 */
 Route::prefix('/version')->name('api.admin.version')->group(function (): void {
     Route::get('/', VersionController::class);
+});
+
+/*
+|--------------------------------------------------------------------------
+| IP Ban Controller Routes
+|--------------------------------------------------------------------------
+|
+| Endpoint: /api/admin/ip-bans
+|
+| Address-level bans, kept apart from accounts: setting or lifting one never
+| touches a user row. Root administrators only — see the requests.
+|
+*/
+Route::prefix('/ip-bans')->name('api.admin.ip-bans')->group(function (): void {
+    Route::get('/', [IpBanController::class, 'index']);
+    Route::post('/', [IpBanController::class, 'store'])->name('.store');
+    Route::delete('/{ban:id}', [IpBanController::class, 'destroy'])->name('.delete');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Suspension Controller Routes
+|--------------------------------------------------------------------------
+|
+| Endpoint: /api/admin/suspensions
+|
+| Every account closure in the panel, which is what a quoted support case id is
+| resolved against. Per-account history lives under /users/{user}/suspensions.
+| Root administrators only — see GetSuspensionsRequest.
+|
+*/
+Route::prefix('/suspensions')->name('api.admin.suspensions')->group(function (): void {
+    Route::get('/', [UserSuspensionController::class, 'search']);
+});
+
+/*
+|--------------------------------------------------------------------------
+| Sign-in History Controller Routes
+|--------------------------------------------------------------------------
+|
+| Endpoint: /api/admin/login-events
+|
+| The addresses that attempted to authenticate. Rows are written by the login
+| path itself and are never editable, so this group reads and lists only. Root
+| administrators only — see the request.
+|
+*/
+Route::prefix('/login-events')->name('api.admin.login-events')->group(function (): void {
+    Route::get('/', [LoginEventController::class, 'index']);
+    Route::get('/associated-accounts', [LoginEventController::class, 'associated'])->name('.associated');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Announcement Controller Routes
+|--------------------------------------------------------------------------
+|
+| Endpoint: /api/admin/announcements
+|
+| Admin-authored notices for the user dashboard. Status is only ever changed
+| through the dedicated transition endpoints; every mutation is audited.
+|
+*/
+Route::prefix('/announcements')->name('api.admin.announcements')->group(function (): void {
+    Route::get('/', [AnnouncementController::class, 'index']);
+    Route::post('/', [AnnouncementController::class, 'store'])->name('.store');
+
+    Route::get('/{announcement:id}', [AnnouncementController::class, 'show'])->name('.view');
+    Route::put('/{announcement:id}', [AnnouncementController::class, 'update'])->name('.update');
+    Route::delete('/{announcement:id}', [AnnouncementController::class, 'destroy'])->name('.delete');
+
+    Route::get('/{announcement:id}/stats', [AnnouncementController::class, 'stats'])->name('.stats');
+
+    Route::post('/{announcement:id}/publish', [AnnouncementController::class, 'publish'])->name('.publish');
+    Route::post('/{announcement:id}/schedule', [AnnouncementController::class, 'schedule'])->name('.schedule');
+    Route::post('/{announcement:id}/pause', [AnnouncementController::class, 'pause'])->name('.pause');
+    Route::post('/{announcement:id}/archive', [AnnouncementController::class, 'archive'])->name('.archive');
+});
+
+Route::prefix('/announcement-tags')->name('api.admin.announcement-tags')->group(function (): void {
+    Route::get('/', [AnnouncementTagController::class, 'index'])->name('.index');
+    Route::post('/', [AnnouncementTagController::class, 'store'])->name('.store');
+    Route::get('/{announcement_tag:id}', [AnnouncementTagController::class, 'show'])->name('.view');
+    Route::put('/{announcement_tag:id}', [AnnouncementTagController::class, 'update'])->name('.update');
+    Route::delete('/{announcement_tag:id}', [AnnouncementTagController::class, 'destroy'])->name('.delete');
 });

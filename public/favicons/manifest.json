@@ -1,6 +1,6 @@
 {
-    "name": "Pterodactyl",
-    "short_name": "Pterodactyl",
+    "name": "Troxe Hosting",
+    "short_name": "Troxe",
     "icons": [
         { "src": "/favicons/android-icon-36x36.png", "sizes": "36x36", "type": "image/png" },
         { "src": "/favicons/android-icon-48x48.png", "sizes": "48x48", "type": "image/png" },
@@ -11,7 +11,7 @@
         { "src": "/favicons/android-chrome-512x512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" },
         { "src": "/favicons/favicon.svg", "sizes": "any", "type": "image/svg+xml" }
     ],
-    "theme_color": "#3d7bfd",
-    "background_color": "#3d7bfd",
+    "theme_color": "#000000",
+    "background_color": "#000000",
     "display": "standalone"
 }

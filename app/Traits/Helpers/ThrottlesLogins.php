@@ -60,9 +60,18 @@ trait ThrottlesLogins
         return Str::transliterate(Str::lower($login).'|'.($request->ip() ?? 'unknown'));
     }
 
+    /**
+     * The request field holding the account name, which is also the key a lockout is reported
+     * under. The sign-in endpoint takes it as `user`, so that is what a throttle is counted
+     * against, alongside the address: attempts against one account cannot fill the bucket that
+     * belongs to every other account signing in from the same network.
+     *
+     * The checkpoint endpoint sends a token rather than a name, and there the key is the
+     * address alone, which is the right thing for a value that identifies nothing else.
+     */
     protected function throttleUsernameField(): string
     {
-        return 'email';
+        return 'user';
     }
 
     protected function maxLoginAttempts(): int

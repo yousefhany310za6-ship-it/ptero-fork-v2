@@ -6,6 +6,8 @@ export default function Dashboard({ model, className }: ViewProps<'page.dashboar
     return (
         <PageStatus model={model} className={className}>
             <PageContentBlock title='Dashboard' className={className}>
+                {/* Top banner stack — never a modal, never covers the screen. */}
+                <View name='dashboard.announcements' />
                 <View name='dashboard.serverList' />
             </PageContentBlock>
         </PageStatus>

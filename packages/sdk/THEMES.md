@@ -1501,6 +1501,7 @@ the view's layers; a page's **engine slots** are rendered around it by the engin
 | `page.auth.login` | auth | `LoginFormModel` |  | `auth.login.form.after` | `auth.login.before` `auth.login.after` | default, invalid, submitting |
 | `page.auth.password` | auth | `ForgotPasswordFormModel` |  |  | `auth.password.before` `auth.password.after` | default, invalid |
 | `page.auth.passwordReset` | auth | `ResetPasswordFormModel` |  |  | `auth.passwordReset.before` `auth.passwordReset.after` | default, mismatch |
+| `page.auth.suspended` | auth | `SuspendedAccountModel` |  |  | `auth.suspended.before` `auth.suspended.after` | temporary, permanent, bare |
 | `page.dashboard` | app | `PageStatusModel` |  |  |  | default, loading, error |
 | `page.server.activity` | server | `ActivityPageModel` |  |  | `server.activity.before` `server.activity.after` | default |
 | `page.server.backups` | server | `PageStatusModel` |  |  | `server.backups.before` `server.backups.after` | default, loading, error |
@@ -1529,6 +1530,7 @@ the view's layers; a page's **engine slots** are rendered around it by the engin
 | `account.twoFactor` | account | `AccountTwoFactorModel` |  |  | disabled, enabled, setup, setupLoading, disabling, recoveryTokens |
 | `activity.log` | app | `ActivityLogModel` | `scope: ActivityScope` |  | account, server, filtered, empty, paged, loading, error |
 | `app.search` | app | `AppSearchModel` |  |  | closed, results, loading, none, short, error |
+| `dashboard.announcements` | app | `AnnouncementsModel` |  |  | empty, banners, acknowledged |
 | `dashboard.serverCard` | app | `ServerCardModel` | `server: Server` |  | running, offline, suspended, loading |
 | `dashboard.serverCard.address` | app | `ServerCardModel` | `model: ServerCardModel`, `server: Server` |  |  |
 | `dashboard.serverCard.identity` | app | `ServerCardModel` | `model: ServerCardModel`, `server: Server` | `dashboard.serverRow.name.after` |  |

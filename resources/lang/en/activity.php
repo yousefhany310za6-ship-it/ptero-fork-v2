@@ -238,6 +238,9 @@ return [
             'update' => 'Updated the user :email',
             'delete' => 'Deleted the user :email',
             'disable-2fa' => 'Disabled two-factor authentication for :email',
+            'suspend' => 'Suspended an account for :reason (support case :support_case_id)',
+            'unsuspend' => 'Lifted a suspension (support case :support_case_id, :servers_released servers released)',
+            'update-message' => 'Corrected the message shown for support case :support_case_id',
         ],
     ],
 ];

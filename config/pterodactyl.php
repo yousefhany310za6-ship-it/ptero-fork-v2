@@ -195,4 +195,47 @@ return [
     'features' => [
         'new_server_identifiers' => (bool) env('PTERODACTYL_USE_SERVER_IDENTIFIERS', false),
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Security and Enforcement
+    |--------------------------------------------------------------------------
+    |
+    | Which proxies may be believed is decided in config/trustedproxy.php, whose 'proxies'
+    | key the framework's own TrustProxies middleware reads on every request; it refuses '*'
+    | and '**' because a ban keyed on a forgeable header is walked past by anyone who types
+    | a header. While that key is empty, as it is for a panel nginx serves directly, the
+    | connecting socket is the client and X-Forwarded-For and CF-Connecting-IP are ignored
+    | for every ban, history and rate-limit decision.
+    */
+    'security' => [
+        // Days of sign-in history kept before the prune command deletes rows. Addresses
+        // are collected for account security only: they are written to the login history
+        // and the activity log, never to the panel's general log files.
+        'login_ip_retention_days' => (int) env('PTERODACTYL_LOGIN_IP_RETENTION_DAYS', 365),
+
+        // Lift a temporary suspension once it expires, or wait for an administrator. The
+        // scheduled command is registered either way and does nothing while this is off.
+        'auto_lift_expired' => (bool) env('PTERODACTYL_AUTO_LIFT_EXPIRED', false),
+
+        // A banned address is refused at sign-in regardless of this setting. Turning it
+        // on also refuses API requests from that address, which locks out integrations
+        // that legitimately run there, so it is off by default.
+        'ban_blocks_api_requests' => (bool) env('PTERODACTYL_BAN_BLOCKS_API_REQUESTS', false),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Support Contact
+    |--------------------------------------------------------------------------
+    |
+    | Offered to an account holder whose access has been suspended. Anything set here is
+    | shown publicly, so it must never contain a suspension reason, an administrator's
+    | name, or an address — those stay in the admin interface.
+    */
+
+    'support' => [
+        'email' => env('PTERODACTYL_SUPPORT_EMAIL', env('APP_SERVICE_AUTHOR', 'unknown@unknown.com')),
+        'discord_url' => env('PTERODACTYL_SUPPORT_DISCORD_URL', ''),
+    ],
 ];

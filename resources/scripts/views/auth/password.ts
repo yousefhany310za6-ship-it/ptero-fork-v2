@@ -12,7 +12,7 @@ const newPassword = { type: 'password', autoComplete: 'new-password' } as const;
 
 function useForgotPasswordFormModel(): ForgotPasswordFormModel {
     const requestReset = useRequestPasswordResetEmail();
-    const { Captcha, token } = useCaptcha();
+    const { Captcha, token, tokenField } = useCaptcha('auth.forgot-password');
     const form = useForm({
         defaultValues: { email: '' },
         onSubmit: async ({ value, formApi }) => {
@@ -23,7 +23,7 @@ function useForgotPasswordFormModel(): ForgotPasswordFormModel {
             }
 
             try {
-                await requestReset.mutateAsync({ body: { email: value.email, 'g-recaptcha-response': captcha } });
+                await requestReset.mutateAsync({ body: { email: value.email, [tokenField]: captcha } });
                 formApi.reset();
             } catch {
                 // Error toast is handled by the mutation.
@@ -55,7 +55,7 @@ function useResetPasswordFormModel(): ResetPasswordFormModel {
     const { token: resetToken = '' } = useParams({ strict: false });
     const { email = '' } = parseEmailSearch(useSearch({ strict: false }));
     const resetPassword = usePerformPasswordReset();
-    const { Captcha, token } = useCaptcha();
+    const { Captcha, token, tokenField } = useCaptcha('auth.reset-password');
     const form = useForm({
         defaultValues: { password: '', passwordConfirmation: '' },
         onSubmit: async ({ value }) => {
@@ -72,7 +72,7 @@ function useResetPasswordFormModel(): ResetPasswordFormModel {
                         token: resetToken,
                         password: value.password,
                         password_confirmation: value.passwordConfirmation,
-                        'g-recaptcha-response': captcha,
+                        [tokenField]: captcha,
                     },
                 });
                 window.location.assign('/');

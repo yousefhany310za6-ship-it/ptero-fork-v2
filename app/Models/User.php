@@ -13,11 +13,13 @@ use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Concerns\HasVersion4Uuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphToMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\TransientToken;
 use Pterodactyl\Contracts\Models\Identifiable;
+use Pterodactyl\Enum\AccountStatus;
 use Pterodactyl\Facades\Activity;
 use Pterodactyl\Models\Traits\HasAccessTokens;
 use Pterodactyl\Models\Traits\HasRealtimeIdentifier;
@@ -25,7 +27,12 @@ use Pterodactyl\Notifications\SendPasswordReset as ResetPasswordNotification;
 use Pterodactyl\Traits\Helpers\AvailableLanguages;
 
 /**
+ * The three fields below are counted or read out of other tables rather than stored on `users`,
+ * so a model that was not loaded by one of the admin queries simply does not carry them.
+ *
  * @property-read int|null $subuser_of_count
+ * @property-read string|null $last_login_at the moment this account last proved a password
+ * @property-read string|null $last_ip the address it proved it from, as the bytes of a sign-in row
  */
 #[Attributes\Identifiable('user')]
 #[Fillable([
@@ -67,6 +74,7 @@ class User extends Authenticatable implements Identifiable
     protected $attributes = [
         'external_id' => null,
         'root_admin' => false,
+        'account_status' => AccountStatus::Active->value,
         'language' => 'en',
         'use_totp' => false,
         'totp_secret' => null,
@@ -79,6 +87,7 @@ class User extends Authenticatable implements Identifiable
     {
         return [
             'root_admin' => 'boolean',
+            'account_status' => AccountStatus::class,
             'use_totp' => 'boolean',
             'gravatar' => 'boolean',
             'password' => 'hashed',
@@ -128,6 +137,37 @@ class User extends Authenticatable implements Identifiable
     public function servers(): HasMany
     {
         return $this->hasMany(Server::class, 'owner_id');
+    }
+
+    /**
+     * Every suspension this account has ever been under, including the lifted ones: the
+     * history is kept precisely so that a second suspension can be compared with the first.
+     *
+     * @return HasMany<UserSuspension, $this>
+     */
+    public function suspensions(): HasMany
+    {
+        return $this->hasMany(UserSuspension::class, 'user_id')->orderByDesc('id');
+    }
+
+    /**
+     * The suspension that is in force now, if any.
+     *
+     * @return HasOne<UserSuspension, $this>
+     */
+    public function activeSuspension(): HasOne
+    {
+        return $this->hasOne(UserSuspension::class, 'user_id')->whereNull('lifted_at');
+    }
+
+    /**
+     * Whether this account is suspended. Read from `account_status` alone, never from the
+     * suspension row: the column is what enforcement acts on, and a request path that
+     * re-derived the answer from history could disagree with it under load.
+     */
+    public function isSuspended(): bool
+    {
+        return $this->account_status === AccountStatus::Suspended;
     }
 
     /**

@@ -131,3 +131,5 @@ export type ConfiguredExtensionContext<TConfig extends ExtensionConfig, TScreenI
 export { SocketEvent } from "../components/server/events.js";
 export type ServerWebsocketEvent = SocketEvent | `${SocketEvent}`;
 export type { UserValues as AdminUserFormValues } from "../api/admin/users/types.js";
+export { default as DashboardAnnouncements } from "../components/announcements/DashboardAnnouncements.js";
+export type { DashboardAnnouncementsProps } from "../components/announcements/DashboardAnnouncements.js";

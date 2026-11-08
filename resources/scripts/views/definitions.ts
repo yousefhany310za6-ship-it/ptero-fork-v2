@@ -47,6 +47,7 @@ defineView('layout.admin', {
 defineView('app.search', { context: 'app', ...search });
 
 defineView('page.dashboard', { context: 'app', ...dashboard });
+defineView('dashboard.announcements', { context: 'app', ...dashboard });
 defineView('dashboard.serverList', {
     context: 'app',
     slots: [
@@ -80,6 +81,7 @@ defineView('page.auth.login', {
     ...login,
 });
 defineView('page.auth.checkpoint', { ...VIEW_PAGES['page.auth.checkpoint'], ...login });
+defineView('page.auth.suspended', { ...VIEW_PAGES['page.auth.suspended'], ...login });
 defineView('page.auth.password', { ...VIEW_PAGES['page.auth.password'], ...password });
 defineView('page.auth.passwordReset', { ...VIEW_PAGES['page.auth.passwordReset'], ...password });
 

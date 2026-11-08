@@ -28,9 +28,9 @@ export interface AuthLayoutModel {
 }
 
 export interface AppLayoutLink {
-    readonly id: 'dashboard' | 'admin' | 'account';
+    readonly id: string;
     readonly label: string;
-    readonly destination: CorePanelDestination;
+    readonly destination: import('@/sdk/navigation').PanelDestination;
     /** Active only on the destination itself, not below it. */
     readonly exact: boolean;
     /** A lucide icon name, as `NamedIcon` takes it. */
@@ -212,11 +212,15 @@ function useAdminLayoutModel(): AdminLayoutModel {
 }
 
 const appLinks = (rootAdmin: boolean): AppLayoutLink[] => [
-    { id: 'dashboard', label: 'Dashboard', destination: { to: '/' }, exact: true, icon: 'layers' },
+    { id: 'overview', label: 'Overview', destination: { to: '/overview' }, exact: true, icon: 'layout-grid' },
+    { id: 'dashboard', label: 'My Servers', destination: { to: '/my-server' }, exact: true, icon: 'server' },
+    { id: 'invoices', label: 'Invoices', destination: { to: '/invoices' }, exact: true, icon: 'file-text' },
+    { id: 'billing', label: 'Billing', destination: { to: '/billing' }, exact: true, icon: 'credit-card' },
+    { id: 'profile', label: 'Profile', destination: { to: '/profile' }, exact: true, icon: 'user-round' },
     ...(rootAdmin
         ? [{ id: 'admin', label: 'Admin', destination: { to: '/panel' }, exact: false, icon: 'user-cog' } as const]
         : []),
-    { id: 'account', label: 'Account Settings', destination: { to: '/account' }, exact: false, icon: 'user-round' },
+    { id: 'account', label: 'Account Settings', destination: { to: '/account' }, exact: false, icon: 'settings' },
 ];
 
 const DASHBOARD: AppArea = Object.freeze({ kind: 'dashboard' });

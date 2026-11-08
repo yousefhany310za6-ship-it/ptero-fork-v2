@@ -25,6 +25,7 @@ export const classicViews: ThemeViews = {
     'layout.admin': lazyView(() => import('./layout/AdminLayout')),
     'app.search': lazyView(() => import('./layout/Search')),
     'page.dashboard': lazyView(dashboard, 'Dashboard'),
+    'dashboard.announcements': lazyView(dashboard, 'DashboardAnnouncements'),
     'dashboard.serverList': lazyView(dashboard, 'ServerList'),
     'dashboard.serverCard': lazyView(dashboard, 'ServerCard'),
     'dashboard.serverCard.identity': lazyView(dashboard, 'ServerCardIdentity'),
@@ -33,6 +34,7 @@ export const classicViews: ThemeViews = {
 
     'page.auth.login': lazyView(auth, 'LoginPage'),
     'page.auth.checkpoint': lazyView(auth, 'CheckpointPage'),
+    'page.auth.suspended': lazyView(auth, 'SuspendedAccountPage'),
     'page.auth.password': lazyView(auth, 'ForgotPasswordPage'),
     'page.auth.passwordReset': lazyView(auth, 'ResetPasswordPage'),
 

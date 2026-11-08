@@ -53,14 +53,20 @@ const sortingToSearch = (sorting: SortingState): UserListSort | null => {
     return `${primary.desc ? '-' : ''}${primary.id}` as UserListSort;
 };
 
+const statusOptions = [
+    { value: '', label: 'All accounts' },
+    { value: 'active', label: 'Can sign in' },
+    { value: 'suspended', label: 'Suspended' },
+];
+
 export default function UsersContainer() {
-    const { page, filter, sort, navigateToSearch } = useUserListSearch();
+    const { page, filter, sort, status, navigateToSearch } = useUserListSearch();
     const {
         data: users,
         error,
         isFetching,
         refetch,
-    } = useAdminUsers(adminUserListQueryParams(page, filter, sort), { placeholderData: keepPreviousData });
+    } = useAdminUsers(adminUserListQueryParams(page, filter, sort, status), { placeholderData: keepPreviousData });
     const metadata = users?.meta.pagination;
     const pagination = useMemo<PaginationState>(
         () => ({ pageIndex: page - 1, pageSize: metadata?.per_page ?? 50 }),
@@ -133,7 +139,21 @@ export default function UsersContainer() {
                         defaultValue={filter}
                     />
                 </div>
-                <CreateUserButton />
+                <div className='flex flex-wrap items-center gap-2'>
+                    <select
+                        aria-label='Filter by account state'
+                        className='h-9 w-40 rounded-lg border border-border bg-card px-2 text-sm text-foreground'
+                        value={status ?? ''}
+                        onChange={(event) => navigateToSearch({ page: 1, status: event.target.value || null })}
+                    >
+                        {statusOptions.map((option) => (
+                            <option key={option.value} value={option.value}>
+                                {option.label}
+                            </option>
+                        ))}
+                    </select>
+                    <CreateUserButton />
+                </div>
             </form>
             {users ? (
                 <>
@@ -145,7 +165,7 @@ export default function UsersContainer() {
                                 icon={Users}
                                 noun='users'
                                 filter={filter}
-                                onClearFilter={() => navigateToSearch({ page: 1, filter: '' })}
+                                onClearFilter={() => navigateToSearch({ page: 1, filter: '', status: null })}
                                 description='Create an account for each person who should sign in to the panel.'
                                 action={<CreateUserButton />}
                             />

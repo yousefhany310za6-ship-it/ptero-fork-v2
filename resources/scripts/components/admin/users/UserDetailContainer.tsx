@@ -1,12 +1,14 @@
 import { useMemo } from 'react';
 import { Link, Outlet, useNavigate } from '@tanstack/react-router';
 import { getCoreRowModel, useReactTable, type ColumnDef } from '@tanstack/react-table';
-import { ArrowLeft, Server } from 'lucide-react';
+import { AlertOctagon, ArrowLeft, Server } from 'lucide-react';
 import type { AppForm } from '@/components/form';
 import { useAppForm, Form } from '@/components/form';
 import { httpErrorToHuman } from '@/api/http';
 import type { UserValues } from '@/api/admin/users/queries';
 import { useAdminLanguages } from '@/api/admin/languages/queries';
+import { accountFieldsOf } from '@/api/admin/users/types';
+import CopyOnClick from '@/components/elements/CopyOnClick';
 import {
     type AdminUserWithServers,
     type AdminUserServer,
@@ -52,7 +54,61 @@ import { resourceNavigation, type ResourceTab } from '@/views/navigation';
 
 type UserForm = AppForm<UserValues>;
 
-const tabs: ResourceTab[] = [{ id: 'about', label: 'About', to: '/panel/users/$id', exact: true }];
+const tabs: ResourceTab[] = [
+    { id: 'about', label: 'About', to: '/panel/users/$id', exact: true },
+    { id: 'ip-history', label: 'IP History', to: '/panel/users/$id/ip-history' },
+    { id: 'suspensions', label: 'Suspension History', to: '/panel/users/$id/suspensions' },
+    { id: 'security', label: 'Security Activity', to: '/panel/users/$id/security' },
+    { id: 'admin-actions', label: 'Admin Actions', to: '/panel/users/$id/actions' },
+];
+
+/**
+ * What a closed account looks like from the inside: the reference its own support case carries, and
+ * the two facts an administrator most often needs to say out loud — that nothing was deleted, and
+ * that lifting the suspension does not start anything.
+ */
+const SuspensionBanner = ({ supportCaseId, userId }: { supportCaseId: string | null; userId: number }) => (
+    <article
+        role='alert'
+        aria-label='This account is suspended'
+        className='mb-4 rounded-2xl border border-destructive/45 bg-destructive/10'
+    >
+        <div className='flex items-start gap-3.5 p-4'>
+            <span className='flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-destructive/45 bg-destructive/15 text-destructive'>
+                <Icon icon={AlertOctagon} aria-hidden='true' className='h-5 w-5' />
+            </span>
+            <div className='min-w-0 flex-1'>
+                <div className='flex flex-wrap items-center gap-x-3 gap-y-1'>
+                    <h2 className='text-base font-extrabold leading-snug tracking-tight text-foreground'>Suspended</h2>
+                    {supportCaseId && (
+                        <CopyOnClick text={supportCaseId} showInNotification>
+                            <span
+                                className='cursor-pointer font-mono text-sm text-foreground'
+                                title='Copy the support case reference'
+                            >
+                                {supportCaseId}
+                            </span>
+                        </CopyOnClick>
+                    )}
+                </div>
+                <p className='mt-1 text-sm leading-relaxed text-muted-foreground'>
+                    The account cannot sign in, use its API keys, or reach any server it owns. Its servers were told to
+                    stop and its data was left where it is — lifting the suspension reopens the account but starts
+                    nothing.
+                </p>
+                <p className='mt-2 text-sm'>
+                    <Link
+                        to='/panel/users/$id/suspensions'
+                        params={{ id: userId }}
+                        className='text-foreground underline decoration-destructive/60 underline-offset-4 hover:text-destructive'
+                    >
+                        Read the suspension record
+                    </Link>
+                </p>
+            </div>
+        </div>
+    </article>
+);
 
 const IdentityCard = ({
     form,
@@ -343,6 +399,8 @@ export function UserDetailLayout() {
         );
     }
 
+    const account = accountFieldsOf(user.attributes);
+
     return (
         <ExtensionResourceProvider.Provider value={resourceContext}>
             <AdminContentBlock
@@ -360,6 +418,9 @@ export function UserDetailLayout() {
                     <Icon icon={ArrowLeft} className='mr-2' />
                     Back to Users
                 </Link>
+                {account.status === 'suspended' && (
+                    <SuspensionBanner supportCaseId={account.supportCaseId} userId={user.attributes.id} />
+                )}
                 <Slot name='panel.users.detail.actions' data={resourceContext} />
                 <SubNavigation
                     className='mb-6 rounded-sm'

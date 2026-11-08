@@ -18,6 +18,7 @@ export const VIEW_PAGES = {
 
     'page.auth.login': { context: 'auth', slots: ['auth.login.before', 'auth.login.after'] },
     'page.auth.checkpoint': { context: 'auth', slots: ['auth.checkpoint.before', 'auth.checkpoint.after'] },
+    'page.auth.suspended': { context: 'auth', slots: ['auth.suspended.before', 'auth.suspended.after'] },
     'page.auth.password': { context: 'auth', slots: ['auth.password.before', 'auth.password.after'] },
     'page.auth.passwordReset': { context: 'auth', slots: ['auth.passwordReset.before', 'auth.passwordReset.after'] },
 

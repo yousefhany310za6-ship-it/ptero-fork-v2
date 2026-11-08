@@ -1,3 +1,17 @@
+/** The public half of a captcha provider: enough to render a widget, never enough to verify one. */
+export interface CaptchaWidgetSettings {
+    provider: string | null;
+    siteKey: string | null;
+    scriptUrl: string | null;
+    tokenField: string | null;
+}
+
+export interface CaptchaSettings extends CaptchaWidgetSettings {
+    enabled: boolean;
+    /** Per-action overrides, keyed by the rule the endpoint is verified under. */
+    actions: Record<string, CaptchaWidgetSettings>;
+}
+
 export interface SiteSettings {
     name: string;
     locale: string;
@@ -5,4 +19,5 @@ export interface SiteSettings {
         enabled: boolean;
         siteKey: string;
     };
+    captcha: CaptchaSettings;
 }

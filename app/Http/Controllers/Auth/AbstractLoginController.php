@@ -11,12 +11,17 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Event;
 use Pterodactyl\Data\LoginResult;
 use Pterodactyl\Exceptions\DisplayException;
+use Pterodactyl\Exceptions\Http\AccountSuspendedException;
 use Pterodactyl\Http\Controllers\Controller;
+use Pterodactyl\Models\User;
+use Pterodactyl\Services\Security\LoginEventRecorder;
 use Pterodactyl\Traits\Helpers\ThrottlesLogins;
 
 abstract class AbstractLoginController extends Controller
 {
     use ThrottlesLogins;
+
+    public function __construct(protected readonly LoginEventRecorder $events) {}
 
     /**
      * Get the failed login response instance.
@@ -27,6 +32,8 @@ abstract class AbstractLoginController extends Controller
     {
         $this->incrementLoginAttempts($request);
         $login = $request->string('user')->toString();
+        $account = $user instanceof User ? $user : null;
+        $this->events->failed($request, $account, LoginEventRecorder::failureReason($request, $account));
         $this->fireFailedLoginEvent($user, [
             $this->getField($login) => $login,
         ]);
@@ -47,9 +54,34 @@ abstract class AbstractLoginController extends Controller
     {
         if ($result->complete) {
             $this->clearLoginAttempts($request);
+            $this->events->success($request, $result->user);
+        } else {
+            $this->events->checkpoint($request, $result->user);
         }
 
         return new JsonResponse(['data' => $result->toResponseData()]);
+    }
+
+    /**
+     * Refuse an account that is closed, before any session exists to be closed under it.
+     *
+     * This runs after the password has been verified and not before: until it has, the answer
+     * would be telling anyone who asks which accounts are suspended. It does not count as a
+     * failed attempt either — the credentials were right, and the account is not being asked to
+     * try again.
+     *
+     * @throws AccountSuspendedException
+     */
+    protected function assertAccountMaySignIn(Request $request, User $user): void
+    {
+        if (! $user->isSuspended()) {
+            return;
+        }
+
+        $suspension = $user->activeSuspension()->first();
+        $this->events->suspended($request, $user, $suspension?->support_case_id);
+
+        throw AccountSuspendedException::forSuspension($suspension);
     }
 
     /**

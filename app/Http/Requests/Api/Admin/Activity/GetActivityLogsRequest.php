@@ -25,6 +25,7 @@ class GetActivityLogsRequest extends AdminApiRequest
             'filter' => ['sometimes', 'array'],
             'filter.user' => ['sometimes', 'nullable', 'string'],
             'filter.user_id' => ['sometimes', 'nullable', 'integer', 'min:1'],
+            'filter.subject_id' => ['sometimes', 'nullable', 'integer', 'min:1'],
             'filter.event' => ['sometimes', 'nullable', 'string'],
             'filter.event_name' => ['sometimes', 'nullable', 'string'],
             'filter.ip' => ['sometimes', 'nullable', 'string'],

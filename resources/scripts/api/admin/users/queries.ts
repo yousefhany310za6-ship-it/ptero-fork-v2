@@ -35,10 +35,11 @@ import {
 } from '@/api/generated';
 import { notifyHttpError } from '@/plugins/notifications';
 
+import type { AccountStatus } from './types';
 import type { UserValues } from './types';
-export type { UserValues } from './types';
+export type { AccountStatus, UserValues } from './types';
 
-export type UsersFilters = 'email' | 'uuid' | 'username' | 'external_id' | 'search';
+export type UsersFilters = 'email' | 'uuid' | 'username' | 'external_id' | 'search' | 'account_status';
 export type UserListSort = ListSort<'email' | 'username' | 'created_at'>;
 type UsersSorts = 'id' | 'uuid' | 'email' | 'username' | 'created_at';
 export type AdminUsersQueryParams = QueryBuilderParams<UsersFilters, UsersSorts>;
@@ -51,9 +52,14 @@ const userListSortFields = ['email', 'username', 'created_at'] as const;
 export const adminUserListSorts = (sort?: UserListSort): AdminUsersQueryParams['sorts'] =>
     listSorts(userListSortFields, sort);
 
-export const adminUserListQueryParams = (page: number, filter: string, sort?: UserListSort): AdminUsersQueryParams => ({
+export const adminUserListQueryParams = (
+    page: number,
+    filter: string,
+    sort?: UserListSort,
+    status?: AccountStatus
+): AdminUsersQueryParams => ({
     page,
-    filters: { search: filter },
+    filters: { search: filter, account_status: status },
     sorts: adminUserListSorts(sort),
 });
 

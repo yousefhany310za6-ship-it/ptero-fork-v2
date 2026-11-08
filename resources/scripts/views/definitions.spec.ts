@@ -54,7 +54,13 @@ describe('view implementations', () => {
             { routes: ['/auth', '/auth/login'], views: ['layout.auth', 'page.auth.login'] },
             {
                 routes: ['/authenticated', '/authenticated/'],
-                views: ['layout.app', 'page.dashboard', 'dashboard.serverList', 'dashboard.serverCard'],
+                views: [
+                    'layout.app',
+                    'page.dashboard',
+                    'dashboard.announcements',
+                    'dashboard.serverList',
+                    'dashboard.serverCard',
+                ],
             },
             {
                 routes: ['/authenticated/server/$id', '/authenticated/server/$id/'],

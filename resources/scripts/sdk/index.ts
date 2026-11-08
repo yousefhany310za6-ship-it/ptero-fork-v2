@@ -240,3 +240,8 @@ export { SocketEvent } from '@/components/server/events';
 export type ServerWebsocketEvent = SocketEvent | `${SocketEvent}`;
 
 export type { UserValues as AdminUserFormValues } from '@/api/admin/users/types';
+
+// Announcement banners are panel-level chrome the classic dashboard renders;
+// the theme may only import from the SDK, so they are re-exported here.
+export { default as DashboardAnnouncements } from '@/components/announcements/DashboardAnnouncements';
+export type { DashboardAnnouncementsProps } from '@/components/announcements/DashboardAnnouncements';

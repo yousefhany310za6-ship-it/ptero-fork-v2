@@ -8,6 +8,7 @@ use Pterodactyl\Http\Controllers\Api\Client;
 use Pterodactyl\Http\Controllers\Api\Client\AccountController;
 use Pterodactyl\Http\Controllers\Api\Client\ActivityLogController;
 use Pterodactyl\Http\Controllers\Api\Client\ActivityLogFilterController;
+use Pterodactyl\Http\Controllers\Api\Client\Announcements\AnnouncementController;
 use Pterodactyl\Http\Controllers\Api\Client\ApiKeyController;
 use Pterodactyl\Http\Controllers\Api\Client\ClientController;
 use Pterodactyl\Http\Controllers\Api\Client\ExtensionProgressController;
@@ -181,4 +182,23 @@ Route::group([
         Route::post('/reinstall', [SettingsController::class, 'reinstall']);
         Route::put('/docker-image', [SettingsController::class, 'dockerImage']);
     });
+});
+
+/*
+|--------------------------------------------------------------------------
+| Announcements API
+|--------------------------------------------------------------------------
+|
+| Endpoint: /api/client/announcements
+|
+| Notices for the authenticated user. Visibility, audience, timing, mandates,
+| and repeat policy are enforced server-side; interactions are always keyed
+| to the caller, so there is no user parameter to spoof.
+|
+*/
+Route::prefix('/announcements')->group(function (): void {
+    Route::get('/', [AnnouncementController::class, 'index'])->name('api:client.announcements.index');
+    Route::post('/{announcement:id}/shown', [AnnouncementController::class, 'shown'])->name('api:client.announcements.shown');
+    Route::post('/{announcement:id}/ack', [AnnouncementController::class, 'ack'])->name('api:client.announcements.ack');
+    Route::post('/{announcement:id}/dismiss', [AnnouncementController::class, 'dismiss'])->name('api:client.announcements.dismiss');
 });

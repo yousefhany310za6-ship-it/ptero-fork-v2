@@ -251,3 +251,23 @@ it('sends the checkpoint back to sign in without the token the login hands over'
 
     expect(router.state.location.pathname).toBe('/auth/login/checkpoint');
 });
+
+it('refuses to describe a suspension to whoever was not just refused', { timeout: 20_000 }, async () => {
+    (window as BootstrapWindow).SiteConfiguration = { name: 'Panel', locale: 'en', recaptcha: { enabled: false } };
+    const { buildRouteTree } = await import('@/router/routeTree');
+    const router = createRouter({
+        routeTree: buildRouteTree([]),
+        context: { queryClient: new QueryClient() },
+        history: createMemoryHistory({ initialEntries: ['/auth/suspended'] }),
+    });
+
+    await router.load();
+
+    // The notice arrives with the refusal that opens the page; an address typed in carries none,
+    // and a page that named an account to whoever asked would be telling people about accounts.
+    expect(router.state.location.pathname).toBe('/auth/login');
+
+    await router.navigate({ to: '/auth/suspended', state: { suspension: { caseId: 'A7K2P9' } } });
+
+    expect(router.state.location.pathname).toBe('/auth/suspended');
+});

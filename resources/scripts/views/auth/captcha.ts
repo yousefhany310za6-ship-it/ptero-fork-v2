@@ -1,25 +1,41 @@
 import { createElement, useCallback, useMemo, useRef, type ComponentType, type RefObject } from 'react';
 import { toast } from 'sonner';
 import { useSiteSettings } from '@/api/settings/queries';
-import InvisibleRecaptcha, { type InvisibleRecaptchaHandle } from '@/components/elements/InvisibleRecaptcha';
+import type { CaptchaWidgetSettings } from '@/api/settings/types';
+import CaptchaWidget, { type CaptchaWidgetHandle } from '@/components/elements/CaptchaWidget';
 
-function captchaLeaf(ref: RefObject<InvisibleRecaptchaHandle | null>, siteKey: string): ComponentType {
+function widgetLeaf(ref: RefObject<CaptchaWidgetHandle | null>, settings: CaptchaWidgetSettings): ComponentType {
     return function Captcha() {
-        return createElement(InvisibleRecaptcha, { ref, siteKey });
+        return createElement(CaptchaWidget, {
+            ref,
+            provider: settings.provider,
+            siteKey: settings.siteKey,
+            scriptUrl: settings.scriptUrl,
+        });
     };
 }
 
-/** The invisible reCAPTCHA of an auth form, when the panel enables it. */
+/** The captcha of an action, in whatever provider the panel has assigned to it. */
 interface AuthCaptcha {
     readonly Captcha: ComponentType | null;
     /** The value to send, or null once the user has been told the verification failed. */
     readonly token: () => Promise<string | null>;
+    /** The field the token must be sent under; a different provider's field is refused, not tried. */
+    readonly tokenField: string;
 }
 
-export function useCaptcha(): AuthCaptcha {
-    const ref = useRef<InvisibleRecaptchaHandle>(null);
-    const { enabled, siteKey } = useSiteSettings().recaptcha;
-    const Captcha = useMemo(() => (enabled ? captchaLeaf(ref, siteKey || '') : null), [enabled, siteKey]);
+export function useCaptcha(action?: string): AuthCaptcha {
+    const ref = useRef<CaptchaWidgetHandle>(null);
+    const { captcha } = useSiteSettings();
+    const settings = useMemo<CaptchaWidgetSettings>(
+        () => (action ? (captcha.actions[action] ?? captcha) : captcha),
+        [action, captcha]
+    );
+    const enabled = captcha.enabled && settings.provider !== null;
+    const tokenField = settings.tokenField ?? 'g-recaptcha-response';
+
+    const Captcha = useMemo(() => (enabled ? widgetLeaf(ref, settings) : null), [enabled, settings]);
+
     const token = useCallback(async () => {
         if (!enabled) {
             return '';
@@ -36,5 +52,5 @@ export function useCaptcha(): AuthCaptcha {
         return value;
     }, [enabled]);
 
-    return { Captcha, token };
+    return { Captcha, token, tokenField };
 }

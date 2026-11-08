@@ -6,28 +6,20 @@ return [
     /*
      * Set trusted proxy IP addresses.
      *
-     * Both IPv4 and IPv6 addresses are
-     * supported, along with CIDR notation.
+     * Both IPv4 and IPv6 addresses are supported, along with CIDR notation, listed
+     * comma separated in TRUSTED_PROXIES.
      *
-     * The "*" character is syntactic sugar
-     * within TrustedProxy to trust any proxy
-     * that connects directly to your server,
-     * a requirement when you cannot know the address
-     * of your proxy (e.g. if using Rackspace balancers).
+     * The "*" and "**" shortcuts are refused here deliberately. They believe a
+     * forwarded header arriving from any socket, so the address an account signs in
+     * from becomes whatever the client writes, and an IP ban — along with the sign-in
+     * history and the rate limits keyed on it — is stepped over by typing a header.
+     * A panel behind a load balancer lists that balancer's address or range instead.
      *
-     * The "**" character is syntactic sugar within
-     * TrustedProxy to trust not just any proxy that
-     * connects directly to your server, but also
-     * proxies that connect to those proxies, and all
-     * the way back until you reach the original source
-     * IP. It will mean that $request->getClientIp()
-     * always gets the originating client IP, no matter
-     * how many proxies that client's request has
-     * subsequently passed through.
+     * Empty, which is the default, trusts no forwarded header at all: the connecting
+     * socket is taken to be the client.
      */
-    'proxies' => (function (): string|array {
-        $value = (string) env('TRUSTED_PROXIES', '');
-
-        return in_array($value, ['*', '**'], true) ? $value : array_values(array_filter(explode(',', $value)));
-    })(),
+    'proxies' => array_values(array_filter(
+        array_map(trim(...), explode(',', (string) env('TRUSTED_PROXIES', ''))),
+        fn (string $proxy): bool => ! in_array($proxy, ['', '*', '**'], true),
+    )),
 ];

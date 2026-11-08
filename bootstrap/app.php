@@ -21,6 +21,7 @@ use Pterodactyl\Console\Kernel;
 use Pterodactyl\Console\Scheduler;
 use Pterodactyl\Exceptions\ApiErrorResponse;
 use Pterodactyl\Exceptions\DisplayException;
+use Pterodactyl\Exceptions\Http\AccountSuspendedException;
 use Pterodactyl\Exceptions\Http\Connection\DaemonConnectionException;
 use Pterodactyl\Http\Middleware\Activity\TrackAPIKey;
 use Pterodactyl\Http\Middleware\Api\Admin\AuthenticateAdmin;
@@ -30,13 +31,16 @@ use Pterodactyl\Http\Middleware\Api\Client\RequireClientApiKey;
 use Pterodactyl\Http\Middleware\Api\Client\SubstituteClientBindings;
 use Pterodactyl\Http\Middleware\Api\Daemon\DaemonAuthenticate;
 use Pterodactyl\Http\Middleware\Api\IsValidJson;
+use Pterodactyl\Http\Middleware\EnsureAccountIsActive;
 use Pterodactyl\Http\Middleware\EnsureStatefulRequests;
 use Pterodactyl\Http\Middleware\LanguageMiddleware;
 use Pterodactyl\Http\Middleware\MaintenanceMiddleware;
 use Pterodactyl\Http\Middleware\RedirectIfAuthenticated;
+use Pterodactyl\Http\Middleware\RejectBannedIpAddresses;
 use Pterodactyl\Http\Middleware\RememberThemeFlags;
 use Pterodactyl\Http\Middleware\RequireTwoFactorAuthentication;
 use Pterodactyl\Http\Middleware\SetSecurityHeaders;
+use Pterodactyl\Http\Middleware\VerifyCaptcha;
 use Pterodactyl\Http\Middleware\VerifyReCaptcha;
 use Pterodactyl\Services\Themes\ThemeResolver;
 use Symfony\Component\HttpKernel\Exception\HttpException;
@@ -44,7 +48,9 @@ use Symfony\Component\HttpKernel\Exception\HttpException;
 $app = Application::configure(basePath: $_ENV['APP_BASE_PATH'] ?? dirname(__DIR__))
     ->withRouting(using: function (): void {
         Route::middleware('web')->group(function (): void {
-            Route::middleware(['auth.session', RequireTwoFactorAuthentication::class])
+            // A session that outlived its account is closed here: the check runs once the
+            // session has resolved a user, and before anything else is asked about them.
+            Route::middleware(['auth.session', EnsureAccountIsActive::class, RequireTwoFactorAuthentication::class])
                 ->group(base_path('routes/base.php'));
 
             Route::middleware('guest')->prefix('/auth')->group(base_path('routes/auth.php'));
@@ -87,7 +93,14 @@ $app = Application::configure(basePath: $_ENV['APP_BASE_PATH'] ?? dirname(__DIR_
 
         $middleware->priority([SubstituteClientBindings::class]);
 
-        $middleware->web(append: [LanguageMiddleware::class, RememberThemeFlags::class]);
+        // First in both groups, so a banned address is refused before the session starts,
+        // before the csrf token and the captcha are consulted, and before the login throttle
+        // is charged. Not in the global stack: that runs ahead of TrustProxies, and the
+        // address would then be read before the request knows which proxies it may believe.
+        $middleware->web(prepend: [RejectBannedIpAddresses::class]);
+        $middleware->api(prepend: [RejectBannedIpAddresses::class]);
+
+        $middleware->web(append: [LanguageMiddleware::class, RememberThemeFlags::class, VerifyCaptcha::class]);
 
         // Written by the SPA, so it is never encrypted.
         $middleware->encryptCookies(except: [ThemeResolver::SCHEME_COOKIE]);
@@ -97,8 +110,18 @@ $app = Application::configure(basePath: $_ENV['APP_BASE_PATH'] ?? dirname(__DIR_
             'auth:sanctum',
             IsValidJson::class,
             TrackAPIKey::class,
+            // Every way into these routes is checked here — a browser session, an account API
+            // key, an application key — because `auth:sanctum` above resolves all three into the
+            // same user, and this runs once that has happened and before the second-factor gate,
+            // so a closed account is refused for being closed rather than for wanting to enable
+            // something it is not allowed to use.
+            EnsureAccountIsActive::class,
             RequireTwoFactorAuthentication::class,
             AuthenticateIPAccess::class,
+            // A rule an administrator writes for an api path is applied here, without a route
+            // file having to ask for it. It answers after authentication, so an unauthenticated
+            // flood never reaches a provider with anyone else's tokens.
+            VerifyCaptcha::class,
         ]);
 
         $middleware->group('application-api', [SubstituteBindings::class, AuthenticateApplicationUser::class]);
@@ -109,6 +132,7 @@ $app = Application::configure(basePath: $_ENV['APP_BASE_PATH'] ?? dirname(__DIR_
         $middleware->alias([
             'guest' => RedirectIfAuthenticated::class,
             'recaptcha' => VerifyReCaptcha::class,
+            'captcha' => VerifyCaptcha::class,
             'node.maintenance' => MaintenanceMiddleware::class,
         ]);
     })
@@ -136,6 +160,22 @@ $app = Application::configure(basePath: $_ENV['APP_BASE_PATH'] ?? dirname(__DIR_
         $exceptions->render(fn (AuthenticationException $e, Request $request): JsonResponse|RedirectResponse => $request->expectsJson()
             ? ApiErrorResponse::render($e)
             : redirect()->guest('/auth/login'));
+
+        // A closed account is refused with the reference it is meant to quote and the message
+        // written for it. The generic renderer would show the sentence and drop the metadata
+        // the suspended-account page is built out of.
+        $exceptions->render(function (AccountSuspendedException $e, Request $request): ?JsonResponse {
+            if (! $request->expectsJson() && ! $request->is('api/*')) {
+                return null;
+            }
+
+            $meta = $e->errorMeta();
+
+            return new JsonResponse(
+                ApiErrorResponse::toArray($e, $meta === [] ? [] : ['meta' => $meta]),
+                $e->getStatusCode(),
+            );
+        });
 
         // These answer API routes in JSON even when the client does not ask for it.
         $exceptions->render(fn (DisplayException|DaemonConnectionException $e, Request $request): ?JsonResponse => $request->is('api/*')

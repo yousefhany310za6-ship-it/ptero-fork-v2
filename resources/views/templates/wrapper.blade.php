@@ -7,7 +7,7 @@
         @section('meta')
             <meta charset="utf-8">
             <meta http-equiv="X-UA-Compatible" content="IE=edge">
-            <meta content="width=device-width, initial-scale=1" name="viewport">
+            <meta content="width=device-width, initial-scale=1, viewport-fit=cover" name="viewport">
             <meta name="csrf-token" content="{{ csrf_token() }}">
             <meta name="robots" content="noindex">
             {{-- An extension that registers one of these elements (registerHeadTags)
@@ -24,7 +24,7 @@
                 <link rel="manifest" href="/favicons/manifest.json">
             @endunless
             @unless ($extensionHead->replaces('link', 'mask-icon'))
-                <link rel="mask-icon" href="/favicons/safari-pinned-tab.svg" color="#3d7bfd">
+                <link rel="mask-icon" href="/favicons/safari-pinned-tab.svg" color="#000000">
             @endunless
             @unless ($extensionHead->replaces('link', 'shortcut icon'))
                 <link rel="shortcut icon" href="/favicons/favicon.ico">
@@ -33,9 +33,11 @@
                 <meta name="msapplication-config" content="/favicons/browserconfig.xml">
             @endunless
             {{-- data-theme-token: the SPA keeps this tag equal to the --theme-color token.
-                 A theme-color registered by an extension is left exactly as rendered. --}}
+                 A theme-color registered by an extension is left exactly as rendered.
+                 The value below is the shipped theme's own dark --theme-color, which is the
+                 scheme this page is rendered with before the SPA can say otherwise. --}}
             @unless ($extensionHead->replaces('meta', 'theme-color'))
-                <meta name="theme-color" content="#0e4688" data-theme-token>
+                <meta name="theme-color" content="#04060b" data-theme-token>
             @endunless
             {{ $extensionHead }}
         @show

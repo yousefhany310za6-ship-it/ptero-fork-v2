@@ -60,6 +60,11 @@ import {
     adminDatabaseHostQueryOptions,
     adminDatabaseHostsQueryOptions,
 } from '@/api/admin/database-hosts/queries';
+import { adminAnnouncementsQueryOptions } from '@/api/admin/announcements/queries';
+import { adminIpBansQueryOptions } from '@/api/admin/ipBans/queries';
+import { adminUserIpHistoryQueryOptions } from '@/api/admin/loginEvents/queries';
+import { userSuspensionsQueryOptions } from '@/api/admin/users/suspensions';
+import { readSuspensionNotice } from '@/api/auth/suspension';
 import { selectServerPermissions, serverQueryOptions } from '@/api/server/queries';
 import { serverBackupsQueryOptions } from '@/api/server/backups/queries';
 import { serverDatabasesQueryOptions } from '@/api/server/databases/queries';
@@ -78,6 +83,9 @@ import { RouteAccessDenied } from '@/router/RouteError';
 import { eggIdParam, idParam, scheduleIdParam } from '@/router/params';
 import { parseRedirectSearch } from '@/router/redirect';
 import { componentRoute, layoutRoute, pageRoute, requireServerPermission } from '@/router/viewRoutes';
+import { parseAnnouncementListSearch } from '@/router/announcementsSearch';
+import { parseIpBanListSearch } from '@/router/ipBansSearch';
+import { parseIpHistorySearch } from '@/router/userIpHistorySearch';
 import { preloadView } from '@/views/View';
 import {
     parseActivitySearch,
@@ -132,6 +140,19 @@ const authChildren = [
             }
         },
     }),
+    // The screen an account sees when its password was right and its access is closed.
+    createRoute({
+        getParentRoute: () => authRoute,
+        path: 'suspended',
+        component: pageRoute('page.auth.suspended'),
+        // The refusal carries the notice in history state, and this page says nothing without one:
+        // an account is named by proving it, not by an address someone can type in.
+        beforeLoad: ({ location }) => {
+            if (readSuspensionNotice(location.state) === null) {
+                throw redirect({ to: '/auth/login', replace: true });
+            }
+        },
+    }),
     createRoute({
         getParentRoute: () => authRoute,
         path: 'password',
@@ -161,12 +182,13 @@ const authenticatedRoute = createRoute({
     component: layoutRoute('layout.app'),
 });
 
-const dashboardRoute = createRoute({
-    getParentRoute: () => authenticatedRoute,
-    path: '/',
+const dashboardSearchLoader = {
     validateSearch: parseDashboardSearch,
-    loaderDeps: ({ search }) => ({ page: search.page ?? 1, type: search.type }),
-    loader: async ({ context, deps }) => {
+    loaderDeps: ({ search }: { search: { page?: number; type?: 'admin' | 'admin-all' } }) => ({
+        page: search.page ?? 1,
+        type: search.type,
+    }),
+    loader: async ({ context, deps }: any) => {
         const user = await context.queryClient.ensureQueryData({
             ...currentUserQueryOptions(),
             revalidateIfStale: true,
@@ -177,7 +199,58 @@ const dashboardRoute = createRoute({
             revalidateIfStale: true,
         });
     },
+};
+
+const dashboardRoute = createRoute({
+    getParentRoute: () => authenticatedRoute,
+    path: '/',
+    ...dashboardSearchLoader,
+    beforeLoad: () => {
+        throw redirect({ to: '/overview', replace: true });
+    },
     component: pageRoute('page.dashboard'),
+});
+
+const userOverviewRoute = createRoute({
+    getParentRoute: () => authenticatedRoute,
+    path: 'overview',
+    ...dashboardSearchLoader,
+    component: pageRoute('page.dashboard'),
+});
+
+const myServerRoute = createRoute({
+    getParentRoute: () => authenticatedRoute,
+    path: 'my-server',
+    ...dashboardSearchLoader,
+    component: componentRoute(() => import('@/components/account/pages/MyServersPage')),
+});
+
+const myServerAliasRoute = createRoute({
+    getParentRoute: () => authenticatedRoute,
+    path: 'my server',
+    ...dashboardSearchLoader,
+    beforeLoad: () => {
+        throw redirect({ to: '/my-server', replace: true });
+    },
+    component: componentRoute(() => import('@/components/account/pages/MyServersPage')),
+});
+
+const invoicesRoute = createRoute({
+    getParentRoute: () => authenticatedRoute,
+    path: 'invoices',
+    component: componentRoute(() => import('@/components/account/pages/InvoicesPage')),
+});
+
+const billingRoute = createRoute({
+    getParentRoute: () => authenticatedRoute,
+    path: 'billing',
+    component: componentRoute(() => import('@/components/account/pages/BillingPage')),
+});
+
+const profileRoute = createRoute({
+    getParentRoute: () => authenticatedRoute,
+    path: 'profile',
+    component: pageRoute('page.account.overview'),
 });
 
 const accountRoute = createRoute({
@@ -732,6 +805,67 @@ const userDetailChildren = [
         path: '/',
         component: componentRoute(() => import('@/components/admin/users/UserDetailContainer')),
     }),
+    createRoute({
+        getParentRoute: () => userDetailRoute,
+        path: 'ip-history',
+        validateSearch: parseIpHistorySearch,
+        loaderDeps: ({ search }) => ({
+            page: search.page ?? 1,
+            ip: search.ip,
+            outcome: search.outcome,
+            sort: search.sort,
+        }),
+        loader: async ({ context, deps, params }) => {
+            await context.queryClient.ensureQueryData({
+                ...adminUserIpHistoryQueryOptions(params.id, deps),
+                revalidateIfStale: true,
+            });
+        },
+        component: componentRoute(
+            () => import('@/components/admin/users/UserIpHistoryTab'),
+            ['panel.users.detail.ip-history.before', 'panel.users.detail.ip-history.after']
+        ),
+    }),
+    createRoute({
+        getParentRoute: () => userDetailRoute,
+        path: 'suspensions',
+        loader: async ({ context, params }) => {
+            await context.queryClient.ensureQueryData({
+                ...userSuspensionsQueryOptions(Number(params.id), { page: 1, perPage: 50 }),
+                revalidateIfStale: true,
+            });
+        },
+        component: componentRoute(
+            () => import('@/components/admin/users/SuspensionHistoryTab'),
+            ['panel.users.detail.suspensions.before', 'panel.users.detail.suspensions.after']
+        ),
+    }),
+    createRoute({
+        getParentRoute: () => userDetailRoute,
+        path: 'security',
+        component: componentRoute(
+            () => import('@/components/admin/users/SecurityActivityTab'),
+            ['panel.users.detail.security.before', 'panel.users.detail.security.after']
+        ),
+    }),
+    createRoute({
+        getParentRoute: () => userDetailRoute,
+        path: 'actions',
+        loader: async ({ context, params }) => {
+            await context.queryClient.ensureQueryData({
+                ...adminActivityLogsQueryOptions({
+                    page: 1,
+                    filters: { subject: Number(params.id) },
+                    sorts: { timestamp: -1 },
+                }),
+                revalidateIfStale: true,
+            });
+        },
+        component: componentRoute(
+            () => import('@/components/admin/users/AdminActionsTab'),
+            ['panel.users.detail.admin-actions.before', 'panel.users.detail.admin-actions.after']
+        ),
+    }),
 ];
 
 export const locationDetailRoute = createRoute({
@@ -840,6 +974,17 @@ const panelChildren = [
     createRoute({
         getParentRoute: () => panelRoute,
         path: 'settings/advanced',
+        loader: async ({ context }) => {
+            await context.queryClient.ensureQueryData({ ...adminSettingsQueryOptions(), revalidateIfStale: true });
+        },
+        component: componentRoute(
+            () => import('@/components/admin/settings/SettingsContainer'),
+            ['panel.settings.before', 'panel.settings.after']
+        ),
+    }),
+    createRoute({
+        getParentRoute: () => panelRoute,
+        path: 'settings/captcha',
         loader: async ({ context }) => {
             await context.queryClient.ensureQueryData({ ...adminSettingsQueryOptions(), revalidateIfStale: true });
         },
@@ -1096,6 +1241,58 @@ const panelChildren = [
             ['panel.apiKeys.before', 'panel.apiKeys.after']
         ),
     }),
+    createRoute({
+        getParentRoute: () => panelRoute,
+        path: 'announcements',
+        staticData: { nav: { label: 'Announcements', icon: 'megaphone' } },
+        validateSearch: parseAnnouncementListSearch,
+        loaderDeps: ({ search }) => ({
+            page: search.page ?? 1,
+            status: search.status,
+            sort: search.sort,
+        }),
+        loader: async ({ context, deps }) => {
+            await context.queryClient.ensureQueryData({
+                ...adminAnnouncementsQueryOptions({ page: deps.page, status: deps.status, sort: deps.sort }),
+                revalidateIfStale: true,
+            });
+        },
+        component: componentRoute(
+            () => import('@/components/admin/announcements/AnnouncementsContainer'),
+            ['panel.announcements.before', 'panel.announcements.after']
+        ),
+    }),
+    createRoute({
+        getParentRoute: () => panelRoute,
+        path: 'announcement-tags',
+        staticData: { nav: { label: 'Announcement Tags', icon: 'megaphone' } },
+        component: componentRoute(
+            () => import('@/components/admin/announcements/AnnouncementTagManager'),
+            ['panel.announcements.before', 'panel.announcements.after']
+        ),
+    }),
+    createRoute({
+        getParentRoute: () => panelRoute,
+        path: 'ip-bans',
+        staticData: { nav: { label: 'IP Bans', icon: 'shield-off' } },
+        validateSearch: parseIpBanListSearch,
+        loaderDeps: ({ search }) => ({
+            page: search.page ?? 1,
+            ip: search.ip,
+            status: search.status,
+            sort: search.sort,
+        }),
+        loader: async ({ context, deps }) => {
+            await context.queryClient.ensureQueryData({
+                ...adminIpBansQueryOptions({ page: deps.page, ip: deps.ip, status: deps.status, sort: deps.sort }),
+                revalidateIfStale: true,
+            });
+        },
+        component: componentRoute(
+            () => import('@/components/admin/ip-bans/IpBansContainer'),
+            ['panel.ip-bans.before', 'panel.ip-bans.after']
+        ),
+    }),
 ];
 
 const panelResourceRoutes = [nodeDetailRoute, serverDetailRoute, eggDetailRoute, userDetailRoute];
@@ -1181,6 +1378,12 @@ export function buildRouteTree(extensions: readonly SiteExtensionEntry[] = getBo
         authRoute.addChildren(authChildren),
         authenticatedRoute.addChildren([
             dashboardRoute,
+            userOverviewRoute,
+            myServerRoute,
+            myServerAliasRoute,
+            invoicesRoute,
+            billingRoute,
+            profileRoute,
             accountRoute.addChildren(accountRouteChildren),
             serverRoute.addChildren(serverRouteChildren),
             panelRoute.addChildren(panelRouteChildren),

@@ -2,7 +2,7 @@
 // Do not edit this directory by hand; run npm run api:generate instead.
 
 export type ClientOptions = {
-    baseURL: 'http://localhost' | (string & {});
+    baseURL: 'http://184.174.36.212' | (string & {});
 };
 
 export type AdminActivityLogAttributes = {
@@ -2611,6 +2611,58 @@ export type AdminUpdateAdvancedSettingsRequest = {
     'pterodactyl:client_features:allocations:range_end'?: number | null;
 };
 
+export type AdminUpdateCaptchaSettingsRequest = {
+    /**
+     * The enabled.
+     */
+    enabled: boolean;
+    /**
+     * The default provider.
+     */
+    default_provider: 'recaptcha' | 'hcaptcha' | 'turnstile';
+    /**
+     * The providers.
+     */
+    providers: Array<{
+        name: 'recaptcha' | 'hcaptcha' | 'turnstile';
+        enabled: boolean;
+        /**
+         * Must not be greater than 191 characters.
+         */
+        site_key?: string | null;
+        /**
+         * Must not be greater than 191 characters.
+         */
+        secret_key?: string | null;
+    }>;
+    /**
+     * Laravel validation rules applied to user-submitted values.
+     */
+    rules: Array<{
+        /**
+         * Must not be greater than 64 characters.
+         */
+        key: string;
+        /**
+         * Must not be greater than 191 characters.
+         */
+        path?: string | null;
+        /**
+         * Must not be greater than 191 characters.
+         */
+        route?: string | null;
+        methods: Array<'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'>;
+        provider?: 'recaptcha' | 'hcaptcha' | 'turnstile' | null;
+        required: boolean;
+        /**
+         * Must not be greater than 191 characters.
+         */
+        action?: string | null;
+        require_action: boolean;
+        hostname_check?: boolean | null;
+    }>;
+};
+
 export type AdminCreateDatabaseHostRequest = {
     /**
      * The display name. Must not be greater than 191 characters.
@@ -3935,6 +3987,74 @@ export type AdminListEggCatalogResponseBody = {
  */
 export type AdminExportEggResponseBody = string;
 
+export type AdminGetCaptchaSettingsResponseBody = {
+    enabled?: boolean;
+    /**
+     * The provider an action uses when its own rule names none.
+     */
+    default_provider: 'recaptcha' | 'hcaptcha' | 'turnstile';
+    providers?: Array<{
+        /**
+         * The provider key, as it is named when saving settings.
+         */
+        name: 'recaptcha' | 'hcaptcha' | 'turnstile';
+        label?: string;
+        enabled?: boolean;
+        site_key?: string;
+        secret_key?: string;
+        has_secret?: boolean;
+        token_field?: string;
+        script_url?: string;
+        verify_url?: string;
+        /**
+         * Whether the host a response was solved on must match this panel; null defers to the provider.
+         */
+        hostname_check: boolean | null;
+        using_shipped_keys?: boolean;
+        errors?: Array<string>;
+    }>;
+    rules?: Array<{
+        key?: string;
+        /**
+         * The path this action guards, without surrounding slashes; null when only a route names it.
+         */
+        path: string | null;
+        /**
+         * The route name this action guards; null when only a path names it.
+         */
+        route: string | null;
+        methods?: Array<string>;
+        /**
+         * The provider this action asks; null leaves it on the default.
+         */
+        provider: 'recaptcha' | 'hcaptcha' | 'turnstile';
+        required?: boolean;
+        /**
+         * The Turnstile action a response must have solved; null binds nothing.
+         */
+        action: string | null;
+        require_action?: boolean;
+        /**
+         * Whether the host a response was solved on must match this panel; null defers to the provider.
+         */
+        hostname_check: boolean | null;
+        label?: string;
+        wired?: boolean;
+        enforced?: boolean;
+        builtin?: boolean;
+    }>;
+};
+
+export type AdminTestACaptchaProviderResponseBody = {
+    provider?: string;
+    /**
+     * What the answer means: whether the provider was reached, and whether it accepted the keys.
+     */
+    status: 'test_keys' | 'keys_rejected' | 'connected' | 'unreachable' | 'misconfigured';
+    error_codes?: Array<string>;
+    details?: Array<string>;
+};
+
 export type ApplicationGetNodeConfigurationResponseBody = {
     debug?: boolean;
     uuid?: string;
@@ -4632,6 +4752,8 @@ export type AdminListTagsIncludeQueryParameter = 'eggs' | 'nodes' | 'eggs,nodes'
 export type AdminGetTagIncludeQueryParameter = 'eggs' | 'nodes' | 'eggs,nodes';
 
 export type AdminGetTagTagIdPathParameter = number;
+
+export type AdminTestACaptchaProviderProviderPathParameter = string;
 
 /**
  * Page number to retrieve.
@@ -10215,6 +10337,103 @@ export type AdminUpdateAdvancedSettingsResponses = {
 };
 
 export type AdminUpdateAdvancedSettingsResponse = AdminUpdateAdvancedSettingsResponses[keyof AdminUpdateAdvancedSettingsResponses];
+
+export type AdminGetCaptchaSettingsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/admin/settings/captcha';
+};
+
+export type AdminGetCaptchaSettingsErrors = {
+    /**
+     * Authentication credentials were missing or invalid.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The API key does not have permission to perform this action.
+     */
+    403: ErrorEnvelope;
+};
+
+export type AdminGetCaptchaSettingsError = AdminGetCaptchaSettingsErrors[keyof AdminGetCaptchaSettingsErrors];
+
+export type AdminGetCaptchaSettingsResponses = {
+    /**
+     * Captcha settings returned.
+     */
+    200: AdminGetCaptchaSettingsResponseBody;
+};
+
+export type AdminGetCaptchaSettingsResponse = AdminGetCaptchaSettingsResponses[keyof AdminGetCaptchaSettingsResponses];
+
+export type AdminUpdateCaptchaSettingsData = {
+    body: AdminUpdateCaptchaSettingsRequest;
+    path?: never;
+    query?: never;
+    url: '/api/admin/settings/captcha';
+};
+
+export type AdminUpdateCaptchaSettingsErrors = {
+    /**
+     * Authentication credentials were missing or invalid.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The API key does not have permission to perform this action.
+     */
+    403: ErrorEnvelope;
+    /**
+     * The submitted data is invalid.
+     */
+    422: ValidationErrorEnvelope;
+};
+
+export type AdminUpdateCaptchaSettingsError = AdminUpdateCaptchaSettingsErrors[keyof AdminUpdateCaptchaSettingsErrors];
+
+export type AdminUpdateCaptchaSettingsResponses = {
+    /**
+     * Captcha settings updated.
+     */
+    204: void;
+};
+
+export type AdminUpdateCaptchaSettingsResponse = AdminUpdateCaptchaSettingsResponses[keyof AdminUpdateCaptchaSettingsResponses];
+
+export type AdminTestACaptchaProviderData = {
+    body?: never;
+    path: {
+        provider: AdminTestACaptchaProviderProviderPathParameter;
+    };
+    query?: never;
+    url: '/api/admin/settings/captcha/{provider}/test';
+};
+
+export type AdminTestACaptchaProviderErrors = {
+    /**
+     * Authentication credentials were missing or invalid.
+     */
+    401: ErrorEnvelope;
+    /**
+     * The API key does not have permission to perform this action.
+     */
+    403: ErrorEnvelope;
+    /**
+     * No provider with that name is configured.
+     */
+    404: ErrorEnvelope;
+};
+
+export type AdminTestACaptchaProviderError = AdminTestACaptchaProviderErrors[keyof AdminTestACaptchaProviderErrors];
+
+export type AdminTestACaptchaProviderResponses = {
+    /**
+     * The provider answered.
+     */
+    200: AdminTestACaptchaProviderResponseBody;
+};
+
+export type AdminTestACaptchaProviderResponse = AdminTestACaptchaProviderResponses[keyof AdminTestACaptchaProviderResponses];
 
 export type AdminListDatabaseHostsData = {
     body?: never;

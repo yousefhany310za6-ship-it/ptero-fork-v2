@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import type { AdminNodeListSort } from '@/api/admin/nodes/queries';
 import type { AdminServerListSort } from '@/api/admin/servers/queries';
-import type { UserListSort } from '@/api/admin/users/queries';
+import type { AccountStatus, UserListSort } from '@/api/admin/users/queries';
 import type { LocationListSort } from '@/api/admin/locations/queries';
 import type { AdminDatabaseHostListSort } from '@/api/admin/database-hosts/queries';
 import type { AdminMountListSort } from '@/api/admin/mounts/queries';
@@ -37,7 +37,7 @@ export type NodeListSearch = AdminListSearch & {
     sort?: AdminNodeListSort;
 };
 
-export type UserListSearch = AdminListSearch & { sort?: UserListSort };
+export type UserListSearch = AdminListSearch & { sort?: UserListSort; status?: AccountStatus };
 export type LocationListSearch = AdminListSearch & { sort?: LocationListSort };
 export type DatabaseHostListSearch = AdminListSearch & { sort?: AdminDatabaseHostListSort };
 export type MountListSearch = AdminListSearch & { sort?: AdminMountListSort };
@@ -97,8 +97,25 @@ export const parseNodeListSearch = (search: RawSearch): NodeListSearch =>
         '-created_at',
     ]);
 
-export const parseUserListSearch = (search: RawSearch): UserListSearch =>
-    parseSortableAdminListSearch(search, ['email', '-email', 'username', '-username', 'created_at', '-created_at']);
+const accountStatuses: readonly AccountStatus[] = ['active', 'suspended'];
+
+export const parseUserListSearch = (search: RawSearch): UserListSearch => {
+    const result: UserListSearch = parseSortableAdminListSearch(search, [
+        'email',
+        '-email',
+        'username',
+        '-username',
+        'created_at',
+        '-created_at',
+    ]);
+    const status = accountStatuses.find((value) => value === search.status);
+
+    if (status) {
+        result.status = status;
+    }
+
+    return result;
+};
 
 export const parseLocationListSearch = (search: RawSearch): LocationListSearch =>
     parseSortableAdminListSearch(search, ['short', '-short', 'created_at', '-created_at']);
@@ -161,7 +178,46 @@ const useSortableAdminListSearch = <TSort extends AdminListSort>(
 
 export const useServerListSearch = () => useSortableAdminListSearch(parseServerListSearch);
 export const useNodeListSearch = () => useSortableAdminListSearch(parseNodeListSearch);
-export const useUserListSearch = () => useSortableAdminListSearch(parseUserListSearch);
+export const useUserListSearch = () => {
+    const navigate = useNavigate();
+    const { page = 1, filter = '', sort, status } = parseUserListSearch(useSearch({ strict: false }));
+
+    const navigateToSearch = useCallback(
+        (next: SortableAdminListSearchUpdate<UserListSort> & { status?: string | null }) => {
+            const search: UserListSearch = {};
+            const nextPage = next.page ?? page;
+            const nextFilter = next.filter === undefined ? filter : (next.filter ?? '').trim();
+            const nextSort = next.sort === undefined ? sort : next.sort;
+            // The select hands back whatever string its option carries; only the two states the
+            // server filters by survive, exactly as when the value arrives from a URL.
+            const nextStatus = accountStatuses.find(
+                (value) => value === (next.status === undefined ? status : next.status)
+            );
+
+            if (nextPage > 1) {
+                search.page = nextPage;
+            }
+
+            if (nextFilter.length > 0) {
+                search.filter = nextFilter;
+            }
+
+            if (nextSort) {
+                search.sort = nextSort;
+            }
+
+            if (nextStatus) {
+                search.status = nextStatus;
+            }
+
+            void navigate({ to: '.', search, replace: true, viewTransition: false });
+        },
+        [filter, navigate, page, sort, status]
+    );
+
+    return { page, filter, sort, status, navigateToSearch };
+};
+
 export const useLocationListSearch = () => useSortableAdminListSearch(parseLocationListSearch);
 export const useDatabaseHostListSearch = () => useSortableAdminListSearch(parseDatabaseHostListSearch);
 export const useMountListSearch = () => useSortableAdminListSearch(parseMountListSearch);

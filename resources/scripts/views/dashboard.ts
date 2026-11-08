@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQueries, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { useCurrentUser } from '@/api/account/queries';
@@ -9,6 +9,13 @@ import {
     useServerResourceUsage,
     type ClientStatsAttributes,
 } from '@/api/account/servers/queries';
+import {
+    useAckAnnouncement,
+    useClientAnnouncements,
+    useDismissAnnouncement,
+    useReportAnnouncementShown,
+    type PublicAnnouncement,
+} from '@/api/client/announcements/queries';
 import { sendPowerActionInput, useSendPowerAction, type ServerPowerSignal } from '@/api/server/power/queries';
 import { selectServerPermissions } from '@/api/server/queries';
 import type { Server } from '@/api/server/types';
@@ -16,7 +23,12 @@ import { relationshipData } from '@/api/relationships';
 import { ip, mbToBytes } from '@/lib/formatters';
 import { hasPermission } from '@/plugins/usePermissions';
 import { getPageSearch, useDashboardSearch } from '@/router/pageSearch';
-import { createTestServer, createTestServerCard } from './fixtures';
+import {
+    createTestAnnouncement,
+    createTestAnnouncementsModel,
+    createTestServer,
+    createTestServerCard,
+} from './fixtures';
 import { pageStatus, pageStatusFixtures, type PageStatusModel } from './pageStatus';
 import { implementViews, modelFromInput } from './registry';
 import {
@@ -100,9 +112,39 @@ export interface ServerListModel {
     };
 }
 
+/** A banner of the dashboard stack: what the API publishes to a normal user, nothing more. */
+export interface AnnouncementItem {
+    readonly id: number;
+    /** Changes on a material edit, which resurfaces the banner; keys the banner and its impression. */
+    readonly version: number;
+    readonly kind: PublicAnnouncement['kind'];
+    readonly displayType: PublicAnnouncement['display_type'];
+    readonly tag: PublicAnnouncement['tag'] | null;
+    readonly title: string;
+    readonly body: string;
+    readonly policy: PublicAnnouncement['policy'];
+    readonly requireAck: boolean;
+    readonly ackedAt: string | null;
+    readonly actionLabel: string | null;
+    readonly actionUrl: string | null;
+    readonly eventStart: string | null;
+    readonly eventEnd: string | null;
+}
+export interface AnnouncementsModel {
+    /** Server-side visibility already decided which banners this user sees, in what order. */
+    readonly items: readonly AnnouncementItem[];
+    readonly busy: boolean;
+    readonly actions: {
+        readonly acknowledge: (id: number) => void;
+        /** Records the hide; the stack also drops a dismissed `every_visit` banner from this view. */
+        readonly dismiss: (item: AnnouncementItem) => void;
+    };
+}
+
 declare module './registry' {
     interface ViewModels {
         'page.dashboard': PageStatusModel;
+        'dashboard.announcements': AnnouncementsModel;
         'dashboard.serverList': ServerListModel;
         'dashboard.serverCard': ServerCardModel;
         'dashboard.serverCard.identity': ServerCardModel;
@@ -381,10 +423,116 @@ const listFixture = (
     };
 };
 
+const toAnnouncementItem = (announcement: PublicAnnouncement): AnnouncementItem => ({
+    id: announcement.id,
+    version: announcement.content_version,
+    kind: announcement.kind,
+    displayType: announcement.display_type,
+    tag: announcement.tag,
+    title: announcement.title,
+    body: announcement.body,
+    policy: announcement.policy,
+    requireAck: announcement.require_ack,
+    ackedAt: announcement.interaction?.acked_at ?? null,
+    actionLabel: announcement.action_label,
+    actionUrl: announcement.action_url,
+    eventStart: announcement.event_start,
+    eventEnd: announcement.event_end,
+});
+
+export function useAnnouncementsModel(): AnnouncementsModel {
+    const { data } = useClientAnnouncements();
+    const acknowledged = useAckAnnouncement();
+    const dismissed = useDismissAnnouncement();
+    const shown = useReportAnnouncementShown();
+    // A dismissed `every_visit` banner resurfaces next visit by design; hide it for this view now.
+    const [hidden, setHidden] = useState<ReadonlySet<number>>(() => new Set());
+    const items = useMemo(
+        () => (data ?? []).map(toAnnouncementItem).filter((item) => !hidden.has(item.id)),
+        [data, hidden]
+    );
+    // Impressions are reported once per banner per mount; a refetch must not re-report.
+    const reported = useRef(new Set<string>());
+
+    useEffect(() => {
+        for (const item of items) {
+            const key = `${item.id}@${item.version}`;
+
+            if (reported.current.has(key)) {
+                continue;
+            }
+
+            reported.current.add(key);
+            shown.mutate(item.id);
+        }
+    }, [items, shown]);
+
+    return useMemo(
+        () => ({
+            items,
+            busy: acknowledged.isPending || dismissed.isPending,
+            actions: {
+                acknowledge: acknowledged.mutate,
+                dismiss: (item) => {
+                    if (item.policy === 'every_visit' && !item.requireAck) {
+                        setHidden((current) => new Set(current).add(item.id));
+                    }
+
+                    dismissed.mutate(item.id);
+                },
+            },
+        }),
+        [items, acknowledged, dismissed]
+    );
+}
+
 implementViews({
     'page.dashboard': {
         use: useDashboardModel,
         fixtures: pageStatusFixtures,
+    },
+    'dashboard.announcements': {
+        use: useAnnouncementsModel,
+        fixtures: {
+            empty: () => createTestAnnouncementsModel(),
+            banners: () =>
+                createTestAnnouncementsModel({
+                    items: [
+                        createTestAnnouncement(),
+                        createTestAnnouncement({
+                            id: 2,
+                            kind: 'critical',
+                            title: 'Acknowledge the outage notice',
+                            body: 'Read this and confirm you have seen it.',
+                            policy: 'until_ack',
+                            requireAck: true,
+                        }),
+                        createTestAnnouncement({
+                            id: 3,
+                            kind: 'warning',
+                            title: 'Maintenance window',
+                            body: 'Singapore node reboots inside the window.',
+                            policy: 'every_visit',
+                            eventStart: '2026-11-06T02:00:00Z',
+                            eventEnd: '2026-11-06T03:00:00Z',
+                            actionLabel: 'Status page',
+                            actionUrl: 'https://status.example.com',
+                        }),
+                    ],
+                }),
+            acknowledged: () =>
+                createTestAnnouncementsModel({
+                    items: [
+                        createTestAnnouncement({
+                            id: 4,
+                            title: 'Thanks for acknowledging',
+                            policy: 'until_ack',
+                            requireAck: true,
+                            ackedAt: '2026-11-05T10:00:00Z',
+                        }),
+                    ],
+                }),
+        },
     },
     'dashboard.serverList': {
         use: useServerListModel,
